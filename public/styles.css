@@ -41,7 +41,7 @@ body {
   padding-right: max(clamp(0.4rem, 2vw, 1rem), env(safe-area-inset-right));
   padding-bottom: max(clamp(0.4rem, 2vw, 1rem), env(safe-area-inset-bottom));
   background:
-    linear-gradient(160deg, rgba(240,247,226,.55), rgba(230,240,210,.55)),
+    linear-gradient(160deg, rgba(240,247,226,.22), rgba(230,240,210,.22)),
     url('bg.jpg') center / cover no-repeat fixed,
     linear-gradient(160deg, var(--page-2), var(--page));
   background-attachment: fixed;
