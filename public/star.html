@@ -19,7 +19,9 @@
 <script>
 (async function () {
   try {
-    const src = await (await fetch('./star-travel-game.jsx')).text();
+    // Cache-bust so the latest game code always loads (the iframe caches
+    // separately from the main page).
+    const src = await (await fetch('./star-travel-game.jsx?v=' + Date.now(), { cache: 'no-store' })).text();
 
     // Prepare the component source for in-browser transpile:
     //  - drop the ES import (React is a UMD global here)

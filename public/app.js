@@ -224,7 +224,7 @@ $('view-tabs').addEventListener('click', (event) => {
   // Load the star game's iframe only the first time its tab is opened.
   if (view === 'soon') {
     const frame = $('star-frame');
-    if (!frame.src) frame.src = 'star.html';
+    if (!frame.src) frame.src = 'star.html?v=' + Date.now();
     // Tell the game to reload its bag from the server, so any ChatRoom
     // gifting since it was last open is reflected.
     else frame.contentWindow?.postMessage('sync-bag', '*');
