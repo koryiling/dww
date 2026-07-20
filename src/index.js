@@ -609,7 +609,7 @@ async function handle(request, env) {
     const target = await db.prepare('SELECT * FROM users WHERE id = ?')
       .bind(String(toUserId ?? '').trim()).first();
     if (!target) return fail(404, 'user_not_found', '找不到该用户');
-    if (target.id === me.id) return fail(400, 'self_gift', '不能给自己送礼物');
+    // Self-gifting is allowed.
 
     const item = await db.prepare('SELECT * FROM inventory WHERE user_id = ? AND item_key = ?')
       .bind(me.id, k).first();
@@ -683,7 +683,7 @@ async function handle(request, env) {
     const target = await db.prepare('SELECT * FROM users WHERE id = ?')
       .bind(String(toUserId ?? '').trim()).first();
     if (!target) return fail(404, 'user_not_found', '找不到该用户');
-    if (target.id === me.id) return fail(400, 'self_gift', '不能给自己送礼物');
+    // Self-gifting is allowed.
 
     // Deduct conditionally so two gifts can't overdraw. The receiver keeps
     // 70%; the remaining 30% is the platform's cut and is credited to no one.
@@ -718,7 +718,7 @@ async function handle(request, env) {
     await db.batch(ops);
 
     const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
-    return json({ ok: true, user: publicUser(updated), announced: gift.cost >= BIG_GIFT });
+    return json({ ok: true, user: publicUser(updated), announced: gift.cost >= ANNOUNCE_MIN });
   }
 
   // Public profile — only the fields anyone may see. Coins/email never leave.

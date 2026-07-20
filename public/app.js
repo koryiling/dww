@@ -602,8 +602,7 @@ function openPersonMenu(person) {
   els.personProfile.onclick = () => { location.href = `profile.html?id=${encodeURIComponent(person.userId)}`; };
   els.personGift.onclick = () => {
     els.personPanel.hidden = true;
-    if (person.userId === state.me?.id) return toast(t('pickRecipients'));
-    openGiftModal(person);
+    openGiftModal(person);   // self-gifting is allowed
   };
   const canAdmins = () => !!state.me && (state.me.isSuper || (state.me.perms ?? []).includes('admins'));
 
@@ -907,6 +906,14 @@ async function loadGiftCatalog() {
 // The panel shows everyone seated as circles you can multi-select, then a
 // gift grid that sends to all selected. It stays open so you can keep giving
 // until you close it with ✕.
+// Gift recipients = yourself (self-gifting is allowed) plus everyone seated.
+function giftPool() {
+  const me = state.me
+    ? [{ userId: state.me.id, username: `${state.me.username} (${t('meSelf')})`, avatar: state.me.avatar, color: state.me.color }]
+    : [];
+  return [...me, ...state.seatList];
+}
+
 function openGiftModal(preselect) {
   state.giftTargets = new Set(preselect ? [preselect.userId] : []);
   state.giftSrc = 'coin';
@@ -916,10 +923,11 @@ function openGiftModal(preselect) {
   els.giftPanel.hidden = false;
 }
 
-// Select all / none of the seated recipients.
+// Select all / none.
 els.giftAll.addEventListener('click', () => {
-  const all = state.seatList.length > 0 && state.giftTargets.size === state.seatList.length;
-  state.giftTargets = all ? new Set() : new Set(state.seatList.map((o) => o.userId));
+  const pool = giftPool();
+  const all = pool.length > 0 && state.giftTargets.size === pool.length;
+  state.giftTargets = all ? new Set() : new Set(pool.map((o) => o.userId));
   renderRecipients();
 });
 
@@ -939,11 +947,12 @@ els.qtyMinus.addEventListener('click', () => { els.giftQty.value = Math.max(1, g
 els.qtyPlus.addEventListener('click', () => { els.giftQty.value = giftQty() + 1; });
 
 function renderRecipients() {
-  if (!state.seatList.length) {
+  const pool = giftPool();
+  if (!pool.length) {
     els.giftRecipients.innerHTML = `<p class="hint" style="margin:0">${t('noMessages')}</p>`;
     return;
   }
-  els.giftRecipients.replaceChildren(...state.seatList.map((occ) => {
+  els.giftRecipients.replaceChildren(...pool.map((occ) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = `recipient ${state.giftTargets.has(occ.userId) ? 'on' : ''}`;
