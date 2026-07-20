@@ -41,6 +41,9 @@ const els = {
 
   seats: $('seats'), seatCount: $('seat-count'),
   chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
+  giftTabs: $('gift-tabs'), giftBoard: $('gift-board'),
+  giftPanel: $('gift-panel'), giftTitle: $('gift-title'),
+  giftGrid: $('gift-grid'), giftClose: $('gift-close'),
 
   stSpend: $('st-spend'), stIncome: $('st-income'), stNet: $('st-net'),
   stTopup: $('st-topup'), stRounds: $('st-rounds'),
@@ -62,6 +65,8 @@ const state = {
   editAvatar: null,
   mySeat: null,
   lastChatId: 0,
+  gifts: [],
+  giftBoard: 'wealth',
   chip: CHIP_VALUES[0],
   clockOffset: 0,
   phase: null,
@@ -194,8 +199,19 @@ function togglePanel() {
 els.sideToggle.addEventListener('click', togglePanel);
 els.identity.addEventListener('click', togglePanel);
 
-// Placeholder for the next game.
-$('coming-soon').addEventListener('click', () => toast(t('comingSoonMsg')));
+// Top-level view switcher: ChatRoom / DWW / Coming Soon.
+$('view-tabs').addEventListener('click', (event) => {
+  const tab = event.target.closest('.game-tab');
+  if (!tab) return;
+  const view = tab.dataset.view;
+  for (const b of $('view-tabs').children) b.classList.toggle('active', b === tab);
+  for (const v of document.querySelectorAll('.game-view')) {
+    v.hidden = v.id !== `view-${view}`;
+  }
+  // The 🏆 panel toggle only makes sense on the game view.
+  els.sideToggle.style.display = view === 'dww' ? '' : 'none';
+  if (view === 'chatroom') { loadRoom(); loadGiftBoard(); }
+});
 
 // Profile starts collapsed; clicking the header (but not the refresh button)
 // expands it.
@@ -606,6 +622,10 @@ function renderSeats(seats, mySeat) {
         leave.textContent = t('leaveSeat');
         leave.addEventListener('click', (e) => { e.stopPropagation(); leaveSeat(); });
         seat.append(leave);
+      } else {
+        // Tap someone else's seat to send them a gift.
+        seat.classList.add('giftable');
+        seat.addEventListener('click', () => openGiftModal(occ));
       }
     } else {
       seat.innerHTML = `<span class="seat-num">${n}</span>`;
@@ -668,6 +688,87 @@ els.chatForm.addEventListener('submit', async (event) => {
     await loadRoom();
     els.chatList.scrollTop = els.chatList.scrollHeight;
   } catch (error) { toast(tError(error)); }
+});
+
+/* ---- Gifts ---- */
+
+async function loadGiftCatalog() {
+  try { state.gifts = (await api('/api/gifts/catalog')).gifts; } catch { /* keep empty */ }
+}
+
+function openGiftModal(occ) {
+  els.giftTitle.textContent = t('giveGift').replace('{name}', occ.username);
+  els.giftGrid.replaceChildren(...state.gifts.map((g) => {
+    const b = document.createElement('button');
+    b.className = 'gift-opt';
+    b.innerHTML = `<span class="gift-emoji">${g.emoji}</span>
+      <span class="gift-name">${g.name}</span>
+      <span class="gift-cost">🪙 ${num.format(g.cost)}</span>`;
+    b.addEventListener('click', () => sendGift(occ, g));
+    return b;
+  }));
+  els.giftPanel.hidden = false;
+}
+
+async function sendGift(occ, gift) {
+  els.giftPanel.hidden = true;
+  try {
+    const { user } = await api('/api/gifts/send', {
+      method: 'POST', body: { toUserId: occ.userId, giftId: gift.id },
+    });
+    state.me = user;
+    renderStats();
+    renderProfile();
+    toast(t('giftSent').replace('{gift}', gift.emoji).replace('{name}', occ.username));
+    loadGiftBoard();
+  } catch (error) { toast(tError(error)); }
+}
+
+els.giftClose.addEventListener('click', () => { els.giftPanel.hidden = true; });
+els.giftPanel.addEventListener('click', (e) => { if (e.target === els.giftPanel) els.giftPanel.hidden = true; });
+
+async function loadGiftBoard() {
+  try {
+    const { board, entries } = await api(`/api/gifts/boards?board=${state.giftBoard}`);
+    if (!entries.length) {
+      els.giftBoard.innerHTML = `<li class="lb-empty">${t('boardEmpty')}</li>`;
+      return;
+    }
+
+    if (board === 'feed') {
+      els.giftBoard.replaceChildren(...entries.map((e) => {
+        const li = document.createElement('li');
+        li.className = 'lb-item';
+        li.innerHTML = `<span class="feed-line"></span><span class="lb-net is-win">${e.emoji}</span>`;
+        li.querySelector('.feed-line').textContent =
+          t('gaveGift').replace('{from}', e.from).replace('{to}', e.to).replace('{gift}', '');
+        return li;
+      }));
+      return;
+    }
+
+    const unit = board === 'charm' ? t('received') : t('spent');
+    els.giftBoard.replaceChildren(...entries.map((e, i) => {
+      const li = document.createElement('li');
+      li.className = `lb-item ${e.userId === state.me?.id ? 'is-me' : ''}`;
+      li.innerHTML = `
+        <span class="lb-rank">${['🥇', '🥈', '🥉'][i] ?? i + 1}</span>
+        <span class="seat-avatar sm">${e.avatar}</span>
+        <span class="lb-name"></span>
+        <span class="lb-rounds">${e.times}</span>
+        <span class="lb-net is-win">🪙 ${num.format(e.total)}</span>`;
+      li.querySelector('.lb-name').textContent = e.name;
+      return li;
+    }));
+  } catch { /* non-critical */ }
+}
+
+els.giftTabs.addEventListener('click', (event) => {
+  const tab = event.target.closest('.lb-tab');
+  if (!tab) return;
+  state.giftBoard = tab.dataset.board;
+  for (const el of els.giftTabs.children) el.classList.toggle('active', el === tab);
+  loadGiftBoard();
 });
 
 /* ---- Panels ---- */
@@ -811,6 +912,7 @@ async function enterGame(user) {
   await loadStats();
   await loadRequestStatus();
   await loadRoom();
+  await loadGiftCatalog();
 
   setInterval(tickClock, 200);
   setInterval(poll, 30_000);

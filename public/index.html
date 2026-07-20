@@ -72,10 +72,11 @@
     </div>
   </div>
 
-  <!-- Game switcher — the current game, plus a placeholder for the next one. -->
-  <div class="game-tabs">
-    <button class="game-tab active">🐾 <span data-i18n="game1">动物轮盘</span></button>
-    <button class="game-tab soon" id="coming-soon">✨ <span data-i18n="comingSoon">敬请期待</span></button>
+  <!-- Top-level view switcher. -->
+  <div class="game-tabs" id="view-tabs">
+    <button class="game-tab" data-view="chatroom">💬 <span data-i18n="tabChat">聊天室</span></button>
+    <button class="game-tab active" data-view="dww">🐾 <span data-i18n="tabDww">大胃王</span></button>
+    <button class="game-tab soon" data-view="soon">✨ <span data-i18n="comingSoon">敬请期待</span></button>
   </div>
 
   <header class="hero">
@@ -83,28 +84,53 @@
     <p class="subtitle" data-i18n="subtitle">– 多人同步 –</p>
   </header>
 
-  <div class="layout">
+  <!-- ======================= ChatRoom view ======================= -->
+  <section id="view-chatroom" class="game-view" hidden>
+    <section class="card room">
+      <h2 class="admin-h2">🪑 <span data-i18n="onlineRoom">在线房间</span>
+        <span class="panel-tag" id="seat-count">0/9</span></h2>
+      <div id="seats" class="seats"></div>
+      <p class="hint" data-i18n="giftHint">点击座位上的用户可送礼物 🎁</p>
+    </section>
+
+    <!-- Wealth / Charm / gift feed -->
+    <section class="card">
+      <div class="lb-head">
+        <h2 class="admin-h2">🏅 <span data-i18n="rankings">榜单</span></h2>
+        <div class="lb-tabs" id="gift-tabs">
+          <button class="lb-tab active" data-board="wealth" data-i18n="wealth">财富榜</button>
+          <button class="lb-tab" data-board="charm" data-i18n="charm">魅力榜</button>
+          <button class="lb-tab" data-board="feed" data-i18n="giftFeed">送礼记录</button>
+        </div>
+      </div>
+      <ol id="gift-board" class="lb-list"></ol>
+    </section>
+
+    <section class="card chat-card">
+      <h2 class="admin-h2">💬 <span data-i18n="chat">聊天</span></h2>
+      <ul id="chat-list" class="chat-list"></ul>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" type="text" maxlength="200" data-i18n-ph="chatPlaceholder"
+               placeholder="说点什么…" autocomplete="off">
+        <button type="submit" class="chat-send" data-i18n="send">发送</button>
+      </form>
+    </section>
+  </section>
+
+  <!-- ======================= Coming Soon view ======================= -->
+  <section id="view-soon" class="game-view soon-view" hidden>
+    <div class="card" style="text-align:center">
+      <p style="font-size:3rem;margin:0">✨</p>
+      <h2 data-i18n="comingSoon">敬请期待</h2>
+      <p class="hint" data-i18n="comingSoonMsg"></p>
+    </div>
+  </section>
+
+  <!-- ======================= DWW game view ======================= -->
+  <div id="view-dww" class="game-view layout">
 
     <!-- ---------- main column ---------- -->
     <div class="main-col">
-
-      <!-- Online room: 9 seats + chat -->
-      <section class="card room">
-        <h2 class="admin-h2">🪑 <span data-i18n="onlineRoom">在线房间</span>
-          <span class="panel-tag" id="seat-count">0/9</span></h2>
-        <div id="seats" class="seats"></div>
-      </section>
-
-      <section class="card chat-card">
-        <h2 class="admin-h2">💬 <span data-i18n="chat">聊天</span></h2>
-        <ul id="chat-list" class="chat-list"></ul>
-        <form id="chat-form" class="chat-form">
-          <input id="chat-input" type="text" maxlength="200" data-i18n-ph="chatPlaceholder"
-                 placeholder="说点什么…" autocomplete="off">
-          <button type="submit" class="chat-send" data-i18n="send">发送</button>
-        </form>
-      </section>
-
 
       <section class="status-card">
         <div class="polaroid">
@@ -254,6 +280,15 @@
   </div>
 
   <p id="toast" class="toast" hidden></p>
+</div>
+
+<!-- ===================== Gift overlay ===================== -->
+<div id="gift-panel" class="panel" hidden>
+  <div class="panel-inner">
+    <h2 id="gift-title">Gift</h2>
+    <div id="gift-grid" class="gift-grid"></div>
+    <button id="gift-close" class="wide-btn subtle" data-i18n="cancel">取消</button>
+  </div>
 </div>
 
 <!-- ===================== Records overlay ===================== -->

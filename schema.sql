@@ -107,6 +107,25 @@ CREATE TABLE IF NOT EXISTS chat (
 
 CREATE INDEX IF NOT EXISTS idx_chat_at ON chat(at DESC);
 
+-- Gifts between players. The receiver keeps a share of the cost; the rest is
+-- the platform's cut (not credited anywhere).
+CREATE TABLE IF NOT EXISTS gifts (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_id   TEXT NOT NULL,
+  from_name TEXT NOT NULL,
+  to_id     TEXT NOT NULL,
+  to_name   TEXT NOT NULL,
+  gift_id   TEXT NOT NULL,
+  emoji     TEXT NOT NULL,
+  cost      INTEGER NOT NULL,
+  received  INTEGER NOT NULL,
+  at        INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_gifts_at ON gifts(at DESC);
+CREATE INDEX IF NOT EXISTS idx_gifts_from ON gifts(from_id);
+CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_id);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL

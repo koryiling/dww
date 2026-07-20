@@ -37,6 +37,20 @@ const hasPerm = (row, perm) => !!row.is_super || permsOf(row).includes(perm);
 const AVATARS = ['🐰', '🐻', '🐱', '🐶', '🦊', '🐼', '🐨', '🐯', '🦁', '🐮',
   '🐷', '🐸', '🐵', '🐔', '🐧', '🦄', '🐙', '🦖', '🐳', '🦉'];
 
+// Gift catalogue. The receiver keeps RECEIVER_SHARE of the cost.
+const RECEIVER_SHARE = 0.7;
+const GIFTS = [
+  { id: 'rose',    emoji: '🌹', name: '玫瑰', cost: 100 },
+  { id: 'cake',    emoji: '🎂', name: '蛋糕', cost: 520 },
+  { id: 'kiss',    emoji: '💋', name: '飞吻', cost: 1000 },
+  { id: 'crown',   emoji: '👑', name: '皇冠', cost: 5000 },
+  { id: 'ring',    emoji: '💍', name: '戒指', cost: 10000 },
+  { id: 'car',     emoji: '🚗', name: '跑车', cost: 52000 },
+  { id: 'rocket',  emoji: '🚀', name: '火箭', cost: 100000 },
+  { id: 'castle',  emoji: '🏰', name: '城堡', cost: 520000 },
+];
+const giftById = new Map(GIFTS.map((g) => [g.id, g]));
+
 const publicUser = (row) => ({
   id: row.id,
   username: row.username,
@@ -479,6 +493,78 @@ async function handle(request, env) {
       'INSERT INTO chat (user_id, username, color, avatar, text, at) VALUES (?, ?, ?, ?, ?, ?)'
     ).bind(me.id, me.username, me.color, me.avatar ?? '🐰', body, Date.now()).run();
     return json({ ok: true });
+  }
+
+  if (pathname === '/api/gifts/catalog' && method === 'GET') {
+    return json({ gifts: GIFTS });
+  }
+
+  if (pathname === '/api/gifts/send' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { toUserId, giftId } = await readJson(request);
+    const gift = giftById.get(String(giftId));
+    if (!gift) return fail(400, 'bad_gift', '无效的礼物');
+
+    const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+      .bind(String(toUserId ?? '').trim()).first();
+    if (!target) return fail(404, 'user_not_found', '找不到该用户');
+    if (target.id === me.id) return fail(400, 'self_gift', '不能给自己送礼物');
+
+    // Deduct conditionally so two gifts can't overdraw. The receiver keeps
+    // 70%; the remaining 30% is the platform's cut and is credited to no one.
+    const deducted = await db.prepare(
+      'UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?'
+    ).bind(gift.cost, me.id, gift.cost).run();
+    if (deducted.meta.changes !== 1) {
+      return fail(400, 'insufficient', '余额不足，请联系管理员充值');
+    }
+
+    const received = Math.floor(gift.cost * RECEIVER_SHARE);
+    await db.batch([
+      db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(received, target.id),
+      db.prepare(
+        `INSERT INTO gifts (from_id, from_name, to_id, to_name, gift_id, emoji, cost, received, at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(me.id, me.username, target.id, target.username, gift.id, gift.emoji, gift.cost, received, Date.now()),
+    ]);
+
+    const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
+    return json({ ok: true, user: publicUser(updated) });
+  }
+
+  // Wealth (most sent), Charm (most received), and the gift feed.
+  if (pathname === '/api/gifts/boards' && method === 'GET') {
+    const board = url.searchParams.get('board') ?? 'wealth';
+
+    if (board === 'feed') {
+      const { results = [] } = await db.prepare(
+        'SELECT from_name, to_name, emoji, gift_id, cost, at FROM gifts ORDER BY at DESC LIMIT 30'
+      ).all();
+      return json({
+        board, entries: results.map((r) => ({
+          from: r.from_name, to: r.to_name, emoji: r.emoji, cost: r.cost, at: r.at,
+        })),
+      });
+    }
+
+    const col = board === 'charm' ? 'to_id' : 'from_id';
+    const nameCol = board === 'charm' ? 'to_name' : 'from_name';
+    const amount = board === 'charm' ? 'received' : 'cost';
+    const { results = [] } = await db.prepare(
+      `SELECT ${col} AS uid, ${nameCol} AS name, SUM(${amount}) AS total, COUNT(*) AS times
+         FROM gifts GROUP BY ${col} ORDER BY total DESC LIMIT 20`
+    ).all();
+
+    // Join the current colour/avatar for display.
+    const enriched = [];
+    for (const r of results) {
+      const u = await db.prepare('SELECT color, avatar FROM users WHERE id = ?').bind(r.uid).first();
+      enriched.push({
+        userId: r.uid, name: r.name, total: r.total, times: r.times,
+        color: u?.color ?? '#7aa84e', avatar: u?.avatar ?? '🐰',
+      });
+    }
+    return json({ board, entries: enriched });
   }
 
   if (pathname === '/api/bet' && method === 'POST') {
