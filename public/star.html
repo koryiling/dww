@@ -29,9 +29,10 @@
     let code = src
       .replace(/import\s+React[^\n]*\n/, '')
       .replace(/export\s+default\s+/, '')
+      // A pretty deep-space gradient (readable with the game's white text).
       .replace(
         'radial-gradient(120% 80% at 50% 0%, #15663d 0%, #0a3a24 55%, #04160e 100%)',
-        'transparent'
+        'radial-gradient(130% 90% at 50% -10%, #4b2e83 0%, #2a1c5a 40%, #150f34 72%, #0a0720 100%)'
       );
 
     const out = Babel.transform(code, { presets: ['react'] }).code;

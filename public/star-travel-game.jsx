@@ -219,6 +219,28 @@ export default function App() {
   const spinTimer = useRef(null);
   useEffect(() => () => clearTimeout(spinTimer.current), []);
 
+  // Keep the game's gold in lock-step with the real account balance.
+  const authTok = (typeof localStorage !== "undefined" && localStorage.getItem("dww.token")) || "";
+  const syncedGold = useRef(null);
+  useEffect(() => {
+    if (!authTok) return;
+    fetch("/api/state", { headers: { authorization: "Bearer " + authTok } })
+      .then((r) => r.json())
+      .then((d) => { if (d && d.me) { syncedGold.current = d.me.coins; setGold(d.me.coins); } })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!authTok || syncedGold.current === null) return;
+    const delta = gold - syncedGold.current;
+    if (delta === 0) return;
+    syncedGold.current = gold;
+    fetch("/api/coins/adjust", {
+      method: "POST",
+      headers: { authorization: "Bearer " + authTok, "content-type": "application/json" },
+      body: JSON.stringify({ delta }),
+    }).catch(() => {});
+  }, [gold]);
+
   const isStar = mode === "star";
   const cfg = isStar
     ? { name: t.starGame, rewards: STAR_REWARDS, cur: stars, setCur: setStars, cost: STAR_COST, Icon: StarIcon, color: "#5fffc7", verb: t.travel, curName: t.star }
@@ -299,25 +321,8 @@ export default function App() {
       <div style={{ width: "100%", maxWidth: 430, position: "relative", paddingBottom: 40 }}>
         <div className="stars-bg" style={{ position: "absolute", inset: 0, opacity: 0.5, pointerEvents: "none" }} />
 
-        {/* top bar */}
-        <div style={{ position: "relative", padding: "16px 18px 6px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 17, letterSpacing: 0.5 }}>{t.room}</div>
-            <div style={{ fontSize: 11, opacity: 0.6 }}>ID: 4559135 · HooYa</div>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button className="btn" onClick={() => setLang(lang === "zh" ? "en" : "zh")} style={{ background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.25)", color: "#fff", borderRadius: 999, padding: "5px 12px", fontWeight: 800, fontSize: 12, cursor: "pointer" }}>
-              {lang === "zh" ? "EN" : "中"}
-            </button>
-            <button className="btn" onClick={() => { setGold((g) => g + 10000); showFlash("+10000"); }} title={t.topup}
-              style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "5px 12px", borderRadius: 999, fontWeight: 800, fontSize: 13, color: "#fff", background: "rgba(0,0,0,.35)", border: "1px solid #ffd84d", boxShadow: "0 0 8px #ffd84d", cursor: "pointer" }}>
-              🪙 {fmt(gold)} <span style={{ fontSize: 15, marginLeft: 2 }}>＋</span>
-            </button>
-          </div>
-        </div>
-
         {/* wallet chips */}
-        <div style={{ position: "relative", display: "flex", gap: 8, padding: "6px 18px 0" }}>
+        <div style={{ position: "relative", display: "flex", gap: 8, padding: "16px 18px 0" }}>
           <div style={chip("#5fffc7")} onClick={() => setPanel("shop")}><StarIcon size={18} /><b>{stars}</b><span style={{ opacity: 0.7, fontSize: 11 }}>{t.star}</span><span style={{ marginLeft: "auto", fontSize: 17 }}>＋</span></div>
           <div style={chip("#ff5f8f")} onClick={() => setPanel("shop")}><MoonIcon size={18} /><b>{moons}</b><span style={{ opacity: 0.7, fontSize: 11 }}>{t.moon}</span><span style={{ marginLeft: "auto", fontSize: 17 }}>＋</span></div>
           <div style={chip("#ffd84d")} onClick={() => setPanel("bag")}><span style={{ fontSize: 16 }}>🎒</span><b>{bagCount}</b><span style={{ opacity: 0.7, fontSize: 11 }}>{t.bag}</span></div>
@@ -365,7 +370,6 @@ export default function App() {
           <span style={{ fontSize: 20 }}>🔮</span> {t.wishTitle} <span style={{ fontSize: 16 }}>✨</span>
         </button>
 
-        <div style={{ position: "relative", textAlign: "center", fontSize: 10.5, color: "#7be07b", marginTop: 14, padding: "0 20px", lineHeight: 1.5 }}>{t.sys}</div>
       </div>
 
       {/* big-win banner */}

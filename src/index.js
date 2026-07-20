@@ -526,6 +526,25 @@ async function handle(request, env) {
     return json({ gifts: GIFTS });
   }
 
+  // Star game syncs its balance with the real account. Positive delta = a win,
+  // negative = a spend. Guarded so it can never overdraw.
+  if (pathname === '/api/coins/adjust' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const delta = Math.trunc(Number((await readJson(request)).delta));
+    if (!Number.isFinite(delta) || delta === 0) return json({ coins: me.coins });
+
+    if (delta < 0) {
+      const done = await db.prepare(
+        'UPDATE users SET coins = coins + ? WHERE id = ? AND coins >= ?'
+      ).bind(delta, me.id, -delta).run();
+      if (done.meta.changes !== 1) return fail(400, 'insufficient', '余额不足');
+    } else {
+      await db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(delta, me.id).run();
+    }
+    const updated = await db.prepare('SELECT coins FROM users WHERE id = ?').bind(me.id).first();
+    return json({ coins: updated.coins });
+  }
+
   if (pathname === '/api/gifts/send' && method === 'POST') {
     if (!me) return fail(401, 'auth_required', '请先登录');
     const { toUserId, giftId } = await readJson(request);
