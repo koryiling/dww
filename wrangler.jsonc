@@ -20,7 +20,7 @@
   "vars": {
     // The first account registered under this name becomes superadmin.
     // Register it immediately after deploying, before sharing the URL.
-    "ADMIN_USER": "yueyue",
+    "ADMIN_USER": "yue",
 
     // Workers run in UTC; the leaderboard should reset at *your* midnight.
     // 480 = UTC+8.

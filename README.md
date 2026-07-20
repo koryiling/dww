@@ -34,11 +34,11 @@ Config lives in [`wrangler.jsonc`](wrangler.jsonc):
 
 | Var | Default | Purpose |
 |---|---|---|
-| `ADMIN_USER` | `yueyue` | the first account registered under this name becomes superadmin |
+| `ADMIN_USER` | `yue` | the first account registered under this name becomes superadmin |
 | `TZ_OFFSET_MINUTES` | `480` | leaderboard day/week boundaries in local time (UTC+8) |
 
 > **Claim the admin account immediately after deploying**, before sharing the
-> URL. Register `yueyue` on the game page with a password of your choosing —
+> URL. Register `yue` on the game page with a password of your choosing —
 > it is granted admin only while no admin exists, so it cannot be taken twice.
 > No password is ever stored in the code or in this repo.
 
