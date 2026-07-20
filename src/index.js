@@ -571,6 +571,21 @@ async function handle(request, env) {
     return json({ ok: true });
   }
 
+  // Star game consumes bag items (its own gift / wishing pool). Decrement,
+  // guarded so it can't go negative.
+  if (pathname === '/api/bag/remove' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { key, qty } = await readJson(request);
+    const k = String(key ?? '').trim();
+    const n = Math.max(1, Math.trunc(Number(qty) || 1));
+    const item = await db.prepare('SELECT count FROM inventory WHERE user_id = ? AND item_key = ?')
+      .bind(me.id, k).first();
+    if (!item || item.count < n) return fail(400, 'not_enough_items', '背包物品不足');
+    await db.prepare('UPDATE inventory SET count = count - ? WHERE user_id = ? AND item_key = ?')
+      .bind(n, me.id, k).run();
+    return json({ ok: true });
+  }
+
   // Star history: the global 5000+ feed and the player's own plays, newest
   // first, plus totals.
   if (pathname === '/api/star/history' && method === 'GET') {

@@ -241,6 +241,45 @@ export default function App() {
     }).catch(() => {});
   }, [gold]);
 
+  // The bag is the shared server inventory (same as the ChatRoom bag).
+  // Load it on open, and again whenever the parent tab re-focuses this game,
+  // so gifting in the ChatRoom is reflected here.
+  function loadBag() {
+    if (!authTok) return;
+    fetch("/api/bag", { headers: { authorization: "Bearer " + authTok } })
+      .then((r) => r.json())
+      .then((d) => {
+        const b = {};
+        (d.items || []).forEach((it) => { b[it.key] = it.count; });
+        setBag(b);
+      })
+      .catch(() => {});
+  }
+  useEffect(() => {
+    loadBag();
+    const onMsg = (e) => { if (e && e.data === "sync-bag") loadBag(); };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
+
+  // Consume bag items on the server (star gift / wishing pool materials).
+  const bagRemove = (key, qty) => {
+    if (!authTok) return;
+    fetch("/api/bag/remove", {
+      method: "POST",
+      headers: { authorization: "Bearer " + authTok, "content-type": "application/json" },
+      body: JSON.stringify({ key: String(key), qty }),
+    }).catch(() => {});
+  };
+  const bagAdd = (key, qty) => {
+    if (!authTok) return;
+    fetch("/api/bag/add", {
+      method: "POST",
+      headers: { authorization: "Bearer " + authTok, "content-type": "application/json" },
+      body: JSON.stringify({ key: String(key), emoji: GIFTS[key].emoji, name: GIFTS[key].zh, value: Number(key), qty }),
+    }).catch(() => {});
+  };
+
   const isStar = mode === "star";
   const cfg = isStar
     ? { name: t.starGame, rewards: STAR_REWARDS, cur: stars, setCur: setStars, cost: STAR_COST, Icon: StarIcon, color: "#5fffc7", verb: t.travel, curName: t.star }
@@ -295,6 +334,7 @@ export default function App() {
 
   function gift(goldValue, member, qty) {
     setBag((b) => { const n = { ...b }; n[goldValue] = (n[goldValue] || 0) - qty; if (n[goldValue] <= 0) delete n[goldValue]; return n; });
+    bagRemove(goldValue, qty);   // keep the shared server bag in sync
     const totalVal = goldValue * qty;
     const toUser = Math.round(totalVal * 0.7);
     const cut = totalVal - toUser;
@@ -316,6 +356,11 @@ export default function App() {
       if (success) n[target] = (n[target] || 0) + 1;
       return n;
     });
+    // Sync the combine to the shared server bag: materials leave, and on
+    // success the combined item is added (so it shows in the ChatRoom bag and
+    // can be gifted to others).
+    Object.entries(materials).forEach(([g, c]) => bagRemove(g, c));
+    if (success) bagAdd(target, 1);
     // Failed materials are lost to the house; on success the over-pledge margin is the house cut.
     setAppProfit((p) => p + (success ? Math.max(0, materialValue - target) : materialValue));
     setWishLog((l) => [{ target, success, materialValue, prob, ts: Date.now() }, ...l].slice(0, 40));

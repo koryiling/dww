@@ -225,6 +225,9 @@ $('view-tabs').addEventListener('click', (event) => {
   if (view === 'soon') {
     const frame = $('star-frame');
     if (!frame.src) frame.src = 'star.html';
+    // Tell the game to reload its bag from the server, so any ChatRoom
+    // gifting since it was last open is reflected.
+    else frame.contentWindow?.postMessage('sync-bag', '*');
     loadStarHistory();
   }
 });
