@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>充值 Top-up — 大胃王</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="login-screen" class="app auth">
+  <header class="hero">
+    <h1>充值 Top-up</h1>
+    <p class="subtitle">Superadmin only</p>
+  </header>
+  <section class="card">
+    <form id="login-form" class="form" autocomplete="off">
+      <label class="field">
+        <span>用户名 Username</span>
+        <input id="admin-user" type="text" required>
+      </label>
+      <label class="field">
+        <span>密码 Password</span>
+        <input id="admin-pass" type="password" required>
+      </label>
+      <p id="login-error" class="error" hidden></p>
+      <button type="submit" class="wide-btn">登入 Login</button>
+    </form>
+  </section>
+</div>
+
+<div id="topup-screen" class="app" hidden>
+  <div class="corner-actions">
+    <a class="icon-btn wide" href="admin.html">← 管理 Admin</a>
+    <button class="icon-btn wide" id="logout">登出</button>
+  </div>
+
+  <header class="hero">
+    <h1>充值 Top-up</h1>
+    <p class="subtitle">输入 ID → 核对姓名 → 填写金额</p>
+  </header>
+
+  <!-- Step 1 — find the player -->
+  <section class="card step" id="step-1">
+    <h2 class="admin-h2"><span class="step-num">1</span> 输入用户 ID / Enter user ID</h2>
+    <form id="lookup-form" class="form">
+      <label class="field">
+        <span>5 位数字 ID (5-digit ID)</span>
+        <input id="lookup-id" type="text" inputmode="numeric" pattern="[0-9]{5}"
+               maxlength="5" placeholder="12345" class="big-input" required>
+      </label>
+      <p id="lookup-error" class="error" hidden></p>
+      <button type="submit" class="wide-btn">查询 Look up</button>
+    </form>
+  </section>
+
+  <!-- Step 2 — confirm it's the right person, then enter the amount -->
+  <section class="card step" id="step-2" hidden>
+    <h2 class="admin-h2"><span class="step-num">2</span> 核对姓名 / Check the name</h2>
+
+    <div class="confirm-card">
+      <p class="confirm-label">用户名 Username</p>
+      <p class="confirm-name" id="found-name">—</p>
+      <div class="confirm-row">
+        <span>ID <strong id="found-id">—</strong></span>
+        <span>现有金币 <strong id="found-coins">—</strong></span>
+      </div>
+    </div>
+
+    <p class="warn">⚠️ 请确认这是正确的玩家再充值。<br>Make sure this is the right player before topping up.</p>
+
+    <form id="amount-form" class="form">
+      <label class="field">
+        <span>充值金额 Top-up amount</span>
+        <input id="amount" type="number" step="1" min="1" value="10000"
+               class="big-input" required>
+      </label>
+      <div class="quick-row" id="quick"></div>
+      <p class="preview" id="preview"></p>
+      <p id="amount-error" class="error" hidden></p>
+      <div class="button-row">
+        <button type="button" class="wide-btn subtle" id="cancel">取消 Cancel</button>
+        <button type="submit" class="wide-btn">确认充值 Confirm</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Step 3 — receipt -->
+  <section class="card step" id="step-3" hidden>
+    <h2 class="admin-h2"><span class="step-num">✓</span> 充值成功 / Done</h2>
+    <div class="confirm-card ok">
+      <p class="confirm-name" id="done-name">—</p>
+      <p class="receipt" id="receipt">—</p>
+    </div>
+    <button class="wide-btn" id="again">再充值一位 / Top up someone else</button>
+  </section>
+
+  <p id="toast" class="toast" hidden></p>
+</div>
+
+<script src="topup.js" type="module"></script>
+</body>
+</html>

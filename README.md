@@ -1,36 +1,42 @@
 # 大胃王 (replica) — Animal Wheel
 
-Multiplayer betting wheel. All players share one synchronized round clock, so
-everyone sees the same countdown and the same winner regardless of when they
-opened the page.
+Multiplayer betting wheel on Cloudflare Workers + D1. Every player shares one
+synchronized round clock, so everyone sees the same countdown and the same
+winner regardless of when they opened the page.
+
+**Live:** https://dww.koryiling511.workers.dev
 
 Game logic is ported from [`animal_wheel.ps1`](animal_wheel.ps1); the UI follows
 [`example layout.png`](example%20layout.png).
 
-## Run
+## Pages
 
-Requires Node 18+ (Node 24 LTS is installed at
-`%LOCALAPPDATA%\Programs\nodejs`). **No dependencies, no install step.**
+| | |
+|---|---|
+| `/` | the game |
+| `/admin.html` | superadmin hub |
+| `/topup.html` | add coins — ID → check the name → amount → confirm |
+| `/reset.html` | clear a forgotten password — search by username or ID |
+
+## Deploy
 
 ```sh
-node server/index.js
+wrangler deploy                                   # ship
+wrangler d1 execute dww --remote --file=schema.sql # first time only
+wrangler tail                                      # live logs
 ```
 
-| URL | |
-|---|---|
-| http://localhost:3000/ | game |
-| http://localhost:3000/admin.html | superadmin console |
+Config lives in [`wrangler.jsonc`](wrangler.jsonc):
 
-### Environment
-
-| Variable | Default | Purpose |
+| Var | Default | Purpose |
 |---|---|---|
-| `PORT` | `3000` | listen port |
-| `DWW_ADMIN_USER` | `koryiling` | reserved superadmin username |
-| `DWW_ADMIN_PASSWORD` | *(generated)* | set the admin password; also **recovers a lost one** — set it and restart |
+| `ADMIN_USER` | `yueyue` | the first account registered under this name becomes superadmin |
+| `TZ_OFFSET_MINUTES` | `480` | leaderboard day/week boundaries in local time (UTC+8) |
 
-On first boot the superadmin is created and its password printed to the console
-once. If you lose it, restart with `DWW_ADMIN_PASSWORD` set.
+> **Claim the admin account immediately after deploying**, before sharing the
+> URL. Register `yueyue` on the game page with a password of your choosing —
+> it is granted admin only while no admin exists, so it cannot be taken twice.
+> No password is ever stored in the code or in this repo.
 
 ## Rules
 
@@ -43,10 +49,15 @@ normalized to 100.
 | payout | 5× | 5× | 5× | 5× | 10× | 15× | 25× | 45× | — | — |
 
 The plates are **not shown on the board**. When one lands, every animal on that
-plate pays out — but only the ones you actually bet on.
+plate pays out — but only the ones the player actually bet on.
 
-Rounds: **60s betting → 5s draw**, looping forever.
-`roundId = floor(epochMs / 65000)`, so the schedule is identical everywhere.
+Rounds: **60s betting → 5s draw**, forever.
+`roundId = floor(epochMs / 65000)`, so the schedule is identical everywhere and
+**no process needs to be running** for a round to happen. The draw is
+`HMAC-SHA256(secret, roundId)`: same for every player, reproducible for
+auditing, unpredictable to clients. Settlement happens lazily on the next
+request, and is idempotent — the record id is `<round>-<user>`, so concurrent
+requests cannot double-pay.
 
 ### ⚠️ The paytable loses money
 
@@ -63,34 +74,36 @@ Exact RTP with the weights above — every bet returns **over 100%**:
 
 Cause: the plates add win chance without reducing payouts. 狮子 wins on
 `3.00/102.2` but pays as if it won on `2.20/102.2`. Adjust the weights in
-[`server/wheel.js`](server/wheel.js) to fix.
+[`src/wheel.js`](src/wheel.js) to fix.
 
 ## Accounts
 
-- Register with username + password, and pick a favourite colour (used for your
-  dot on the leaderboard and your bet chips).
-- Everyone starts with **10,000 coins**. There is no self-serve top-up — when
-  you run dry, the superadmin reloads you by **user ID**.
-- **Forgot password:** the admin clears it from the console, which signs that
-  user out everywhere; the user then sets a new one on the *重设密码 / Reset
-  password* tab. The admin never sees or chooses the password.
+- Username + password, plus a favourite colour used for your leaderboard dot
+  and bet chips.
+- Each player gets a **5-digit numeric ID** — short enough to read aloud, which
+  is what the superadmin keys in to top someone up.
+- Everyone starts on **10,000 coins**. No self-serve top-up: when a player runs
+  dry, the superadmin credits them. Top-ups **add** to the existing balance.
+- **Forgot password:** admin clears it on `/reset.html`, which signs that user
+  out everywhere. The user then sets a new one on the *重设密码 / Reset
+  password* tab. The admin never sees or chooses it. Coins and records survive.
 
-Passwords are scrypt-hashed with a per-user salt. The draw is
-`HMAC-SHA256(server secret, roundId)` — identical for all players, reproducible
-for auditing, unpredictable to clients.
+Passwords are PBKDF2-SHA256 (50k iterations, per-user salt). Workers has no
+scrypt, which is what the Node version on the `main` branch used.
 
 ## Layout
 
 ```
-server/
-  index.js   HTTP API + static host (node:http only)
+src/
+  index.js   Worker fetch handler + routes + settlement
   wheel.js   odds, payouts, round schedule, draw
-  store.js   persistence — the ONLY file that knows where data lives
-  auth.js    scrypt hashing
+  auth.js    PBKDF2 hashing, token + id generation
 public/
   index.html app.js i18n.js styles.css   game (中文 / English)
-  admin.html admin.js                    superadmin console
-data/        db.json — gitignored, holds hashes + the draw secret
+  admin.html admin.js                    hub
+  topup.html topup.js                    add coins
+  reset.html reset.js                    clear passwords
+schema.sql   D1 tables
 ```
 
 ## API
@@ -100,18 +113,26 @@ data/        db.json — gitignored, holds hashes + the draw secret
 | `GET /api/config` | board data (no odds — weights stay server-side) |
 | `POST /api/register` `/api/login` `/api/logout` | auth |
 | `POST /api/reset-password` | only after an admin clears the password |
-| `GET /api/state` | clock, phase, your bets, last result |
+| `GET /api/state` | clock, phase, your bets, last result; settles due rounds |
 | `POST /api/bet` | `{ animalId, amount }` |
 | `GET /api/records` | every player's slips |
 | `GET /api/leaderboard?range=day\|week\|month` | net totals |
-| `GET /api/admin/users` | admin |
-| `POST /api/admin/reload` | `{ userId, amount }` |
+| `GET /api/admin/lookup?userId=` | name for an ID, before topping up |
+| `GET /api/admin/search?q=` | find by username **or** ID |
+| `POST /api/admin/reload` | `{ userId, amount }` — additive |
 | `POST /api/admin/clear-password` | `{ userId }` |
 
-## Deploying
+## Two implementations
 
-⚠️ **Cloudflare Pages cannot host this as-is.** Pages serves static files only,
-and Workers has no `node:http` server or filesystem — `server/` would need a
-rewrite onto Workers + D1/KV before it runs there.
+Both live in this repo and share `public/` verbatim — the client never knew
+which backend it was talking to, because the API is identical.
 
-Runs unmodified on any Node host: Render, Railway, Fly.io, or a VPS.
+| | `src/` | `server/` |
+|---|---|---|
+| runs on | Cloudflare Workers | any Node host |
+| storage | D1 (SQL) | `data/db.json` |
+| hashing | PBKDF2 | scrypt |
+| start | `wrangler deploy` | `node server/index.js` |
+
+`src/` is what's deployed. `server/` is kept as a local dev option that needs
+no Cloudflare account — handy for offline work.
