@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大胃王 (replica)</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===================== Login / Register / Reset ===================== -->
+<div id="auth-screen" class="app auth">
+  <div class="corner-actions">
+    <button class="icon-btn wide" id="lang-auth" data-i18n="language">English</button>
+  </div>
+
+  <header class="hero">
+    <h1>大胃王 <span class="replica">(replica)</span></h1>
+    <p class="subtitle" data-i18n="subtitle">– 多人同步 –</p>
+  </header>
+
+  <section class="card">
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tab-login" role="tab" data-i18n="login">登入</button>
+      <button class="tab" id="tab-register" role="tab" data-i18n="register">注册</button>
+      <button class="tab" id="tab-reset" role="tab" data-i18n="reset">重设密码</button>
+    </div>
+
+    <form id="auth-form" class="form" autocomplete="off">
+      <label class="field">
+        <span id="label-username" data-i18n="username">用户名</span>
+        <input id="username" name="username" type="text" maxlength="16" required>
+      </label>
+
+      <label class="field">
+        <span id="label-password" data-i18n="password">密码</span>
+        <input id="password" name="password" type="password" minlength="4" required>
+      </label>
+
+      <div class="field" id="color-field" hidden>
+        <span data-i18n="favColor">喜欢的颜色</span>
+        <div id="swatches" class="swatches"></div>
+      </div>
+
+      <p id="reset-help" class="hint" data-i18n="forgotHelp" hidden></p>
+      <p id="auth-error" class="error" hidden></p>
+
+      <button type="submit" id="auth-submit" class="wide-btn" data-i18n="submitLogin">登入</button>
+    </form>
+
+    <p class="hint" data-i18n="authHint"></p>
+  </section>
+</div>
+
+<!-- ===================== Game ===================== -->
+<div id="game-screen" class="app" hidden>
+
+  <div class="corner-actions">
+    <button class="icon-btn wide" id="lang-game" data-i18n="language">English</button>
+    <button class="icon-btn" id="music" data-i18n-title="music" aria-label="music">♪</button>
+    <button class="icon-btn" id="logout" data-i18n-title="logout" aria-label="logout">⏻</button>
+  </div>
+
+  <header class="hero">
+    <h1>大胃王 <span class="replica">(replica)</span></h1>
+    <p class="subtitle" data-i18n="subtitle">– 多人同步 –</p>
+    <div class="tabs">
+      <button class="tab" disabled data-i18n="single">单人</button>
+      <button class="tab active" data-i18n="multi">多人</button>
+    </div>
+  </header>
+
+  <section class="status-card">
+    <div class="polaroid">
+      <div class="polaroid-photo">🐰🐻</div>
+      <span class="polaroid-caption">Yi &amp; Bu ♡</span>
+    </div>
+
+    <dl class="stats">
+      <div class="stat">
+        <dt><span class="stat-icon">🕐</span> <span data-i18n="timeLeft">剩余时间：</span></dt>
+        <dd><span id="timer" class="pill">--</span> <span data-i18n="seconds">秒</span></dd>
+      </div>
+      <div class="stat">
+        <dt><span class="stat-icon coin">🪙</span> <span data-i18n="coinsLabel">金币：</span></dt>
+        <dd><span id="balance" class="pill">0</span></dd>
+      </div>
+      <div class="stat">
+        <dt><span class="stat-icon" id="player-dot">👤</span> <span data-i18n="playerLabel">玩家：</span></dt>
+        <dd><strong id="player-name">—</strong> <span class="uid" id="player-id"></span></dd>
+      </div>
+    </dl>
+  </section>
+
+  <section id="chips" class="chip-row" aria-label="chips"></section>
+
+  <section id="board" class="board" aria-label="board"></section>
+
+  <!-- Always on screen -->
+  <section class="card leaderboard">
+    <div class="lb-head">
+      <h2>🏆 <span data-i18n="leaderboard">排行榜</span></h2>
+      <div class="lb-tabs" id="lb-tabs">
+        <button class="lb-tab active" data-range="day" data-i18n="daily">今日</button>
+        <button class="lb-tab" data-range="week" data-i18n="weekly">本周</button>
+        <button class="lb-tab" data-range="month" data-i18n="monthly">本月</button>
+      </div>
+    </div>
+    <ol id="lb-list" class="lb-list"></ol>
+  </section>
+
+  <button id="view-records" class="wide-btn">
+    <span class="wide-btn-icon">📋</span> <span data-i18n="viewRecords">查看记录</span>
+  </button>
+
+  <section class="round-status">
+    <p id="phase-text" class="phase-text" data-i18n="connecting">连接中…</p>
+    <div class="divider"></div>
+    <button id="past-results" class="wide-btn subtle">
+      <span class="wide-btn-icon">📊</span> <span data-i18n="pastResults">历史开奖</span>
+    </button>
+  </section>
+
+  <p id="toast" class="toast" hidden></p>
+</div>
+
+<!-- ===================== Records overlay ===================== -->
+<div id="panel" class="panel" hidden>
+  <div class="panel-inner">
+    <h2 id="panel-title">Records</h2>
+    <ul id="panel-list" class="panel-list"></ul>
+    <button id="panel-close" class="wide-btn" data-i18n="close">关闭</button>
+  </div>
+</div>
+
+<script src="app.js" type="module"></script>
+</body>
+</html>

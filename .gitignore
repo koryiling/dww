@@ -1,0 +1,6 @@
+# Runtime database — contains password hashes, sessions and the draw secret.
+# Never commit this.
+data/
+
+node_modules/
+*.log

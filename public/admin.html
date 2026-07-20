@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>大胃王 — Superadmin</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="login-screen" class="app auth">
+  <header class="hero">
+    <h1>Superadmin</h1>
+    <p class="subtitle">大胃王 (replica)</p>
+  </header>
+
+  <section class="card">
+    <form id="login-form" class="form" autocomplete="off">
+      <label class="field">
+        <span>用户名 Username</span>
+        <input id="username" type="text" required>
+      </label>
+      <label class="field">
+        <span>密码 Password</span>
+        <input id="password" type="password" required>
+      </label>
+      <p id="login-error" class="error" hidden></p>
+      <button type="submit" class="wide-btn">登入 Login</button>
+    </form>
+  </section>
+</div>
+
+<div id="admin-screen" class="app" hidden>
+  <div class="corner-actions">
+    <button class="icon-btn wide" id="logout">登出</button>
+  </div>
+
+  <header class="hero">
+    <h1>Superadmin</h1>
+    <p class="subtitle">充值 / 清除密码 — Reload &amp; password reset</p>
+  </header>
+
+  <section class="card">
+    <h2 class="admin-h2">快速充值 Quick reload</h2>
+    <form id="reload-form" class="form">
+      <label class="field">
+        <span>用户 ID (User ID)</span>
+        <input id="reload-id" type="text" placeholder="例如 A1B2C3D4" required>
+      </label>
+      <label class="field">
+        <span>金额 Amount（负数为扣款 / negative deducts）</span>
+        <input id="reload-amount" type="number" value="10000" step="1" required>
+      </label>
+      <button type="submit" class="wide-btn">充值 Reload</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="lb-head">
+      <h2 class="admin-h2">玩家 Players</h2>
+      <button id="refresh" class="lb-tab active">刷新 Refresh</button>
+    </div>
+    <ul id="user-list" class="panel-list"></ul>
+  </section>
+
+  <p id="toast" class="toast" hidden></p>
+</div>
+
+<script src="admin.js" type="module"></script>
+</body>
+</html>
