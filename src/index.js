@@ -322,6 +322,39 @@ async function handle(request, env) {
     });
   }
 
+  // Personal dashboard: everything the player has staked, won and been given.
+  if (pathname === '/api/me/stats' && method === 'GET') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+
+    const bets = await db.prepare(
+      `SELECT COUNT(*) AS rounds,
+              COALESCE(SUM(staked), 0) AS staked,
+              COALESCE(SUM(won), 0)    AS won,
+              COALESCE(SUM(CASE WHEN net > 0 THEN 1 ELSE 0 END), 0) AS wins,
+              COALESCE(SUM(CASE WHEN net < 0 THEN 1 ELSE 0 END), 0) AS losses
+         FROM records WHERE user_id = ?`
+    ).bind(me.id).first();
+
+    // Top-ups arrive two ways — an approved request, or a manual credit.
+    const approved = await db.prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM topup_requests WHERE user_id = ? AND status = 'approved'"
+    ).bind(me.id).first();
+    const manual = await db.prepare(
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM audit_log WHERE target_id = ? AND action = 'topup_manual'"
+    ).bind(me.id).first();
+
+    return json({
+      rounds: bets.rounds,
+      wins: bets.wins,
+      losses: bets.losses,
+      spend: bets.staked,             // total staked
+      income: bets.won,               // total returned by the wheel
+      net: bets.won - bets.staked,    // profit or loss
+      topups: (approved?.total ?? 0) + (manual?.total ?? 0),
+      coins: me.coins,
+    });
+  }
+
   // Players edit their own profile. Username changes go through the same
   // uniqueness check as registration.
   if (pathname === '/api/me/update' && method === 'POST') {
@@ -470,6 +503,29 @@ async function handle(request, env) {
         staked: row.staked,
         won: row.won,
         net: row.net,
+      })),
+    });
+  }
+
+  // Top 3 of the round that just finished — a fresh podium every game.
+  // Only players who actually won appear, so it never shows a negative.
+  if (pathname === '/api/round-top' && method === 'GET') {
+    const target = roundIdAt(Date.now()) - 1;
+    const { results = [] } = await db.prepare(
+      `SELECT r.user_id, u.username, u.color, r.won, r.staked
+         FROM records r JOIN users u ON u.id = r.user_id
+        WHERE r.round_id = ? AND r.won > 0
+        ORDER BY r.won DESC LIMIT 3`
+    ).bind(target).all();
+
+    return json({
+      roundId: target,
+      entries: results.map((row) => ({
+        userId: row.user_id,
+        username: row.username,
+        color: row.color,
+        won: row.won,
+        staked: row.staked,
       })),
     });
   }

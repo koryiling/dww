@@ -169,9 +169,39 @@
         </form>
       </section>
 
-      <!-- Podium -->
+      <!-- Personal dashboard -->
       <section class="card">
-        <h2 class="admin-h2">🏆 <span data-i18n="top3">前三名</span></h2>
+        <h2 class="admin-h2">📊 <span data-i18n="dashboard">我的数据</span></h2>
+        <div class="stat-tiles">
+          <div class="stat-tile">
+            <span data-i18n="totalSpend">总下注</span>
+            <strong id="st-spend">0</strong>
+          </div>
+          <div class="stat-tile">
+            <span data-i18n="totalIncome">总收入</span>
+            <strong id="st-income">0</strong>
+          </div>
+          <div class="stat-tile">
+            <span data-i18n="netProfit">净盈亏</span>
+            <strong id="st-net">0</strong>
+          </div>
+          <div class="stat-tile">
+            <span data-i18n="totalTopup">总充值</span>
+            <strong id="st-topup">0</strong>
+          </div>
+        </div>
+        <p class="stat-line" id="st-rounds">—</p>
+        <div class="record-buttons">
+          <button class="lb-tab" data-records="game" data-i18n="gameRecords">游戏记录</button>
+          <button class="lb-tab" data-records="win" data-i18n="winRecords">赢的记录</button>
+          <button class="lb-tab" data-records="lose" data-i18n="loseRecords">输的记录</button>
+          <button class="lb-tab" data-records="topup" data-i18n="topupRecords">充值记录</button>
+        </div>
+      </section>
+
+      <!-- This round's top 3 -->
+      <section class="card">
+        <h2 class="admin-h2">🏆 <span data-i18n="top3">本局前三名</span></h2>
         <div id="podium" class="podium"></div>
       </section>
 

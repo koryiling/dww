@@ -504,6 +504,50 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---- Personal dashboard ---- */
+
+.stat-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.stat-tile {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--card-2);
+  border: 2px solid var(--line-soft);
+  border-radius: 12px;
+}
+
+.stat-tile span { color: var(--ink-soft); font-size: 0.75rem; }
+
+.stat-tile strong {
+  font-size: clamp(0.95rem, 4vw, 1.2rem);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.stat-tile strong.is-win { color: var(--green-dark); }
+.stat-tile strong.is-loss { color: var(--red); }
+
+.stat-line {
+  margin: 0.5rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.record-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.record-buttons .lb-tab { padding: 0.5rem; }
+
 /* ---- Podium ---- */
 
 .podium {
