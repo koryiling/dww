@@ -230,7 +230,8 @@
       <span class="person-name" id="person-name">—</span>
     </div>
     <button class="wide-btn" id="person-profile" data-i18n="viewProfile">查看资料</button>
-    <button class="wide-btn subtle" id="person-gift" data-i18n="giveGiftBtn">送礼物</button>
+    <button class="wide-btn subtle" id="person-gift" data-i18n="directGift">直送礼物</button>
+    <button class="wide-btn subtle" id="person-box" data-i18n="boxGift">礼盒</button>
     <button class="wide-btn subtle" id="person-cancel" data-i18n="cancel">取消</button>
   </div>
 </div>
@@ -242,8 +243,15 @@
       <h2 data-i18n="sendGift">送礼</h2>
       <button id="gift-close" class="gift-x" aria-label="close">✕</button>
     </div>
-    <p class="hint" style="margin:0" data-i18n="pickRecipients">选择接收者（可多选）</p>
+    <div class="recip-head">
+      <p class="hint" style="margin:0" data-i18n="pickRecipients">选择接收者（可多选）</p>
+      <button type="button" class="lb-tab" id="gift-all" data-i18n="selectAll">全选</button>
+    </div>
     <div id="gift-recipients" class="gift-recipients"></div>
+    <div class="lb-tabs" id="gift-source">
+      <button class="lb-tab active" data-src="coin" data-i18n="coinGift">金币礼物</button>
+      <button class="lb-tab" data-src="bag" data-i18n="bagGift">背包</button>
+    </div>
     <div id="gift-grid" class="gift-grid"></div>
   </div>
 </div>

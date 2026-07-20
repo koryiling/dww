@@ -35,7 +35,8 @@ const els = {
   onlineList: $('online-list'), onlineCount: $('online-count'),
   personPanel: $('person-panel'), personAvatar: $('person-avatar'),
   personName: $('person-name'), personProfile: $('person-profile'),
-  personGift: $('person-gift'), personCancel: $('person-cancel'),
+  personGift: $('person-gift'), personBox: $('person-box'), personCancel: $('person-cancel'),
+  giftSource: $('gift-source'), giftAll: $('gift-all'),
 
   seats: $('seats'), seatCount: $('seat-count'),
   chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
@@ -65,6 +66,8 @@ const state = {
   messages: [],
   chatCat: 'all',
   giftTargets: new Set(),
+  giftSrc: 'coin',
+  bag: [],
   lastChatId: 0,
   lastBcastId: 0,
   gifts: [],
@@ -563,6 +566,8 @@ function openPersonMenu(person) {
     if (person.userId === state.me?.id) return toast(t('pickRecipients'));
     openGiftModal(person);
   };
+  // Gift box — the mechanic is coming later.
+  els.personBox.onclick = () => toast(t('boxSoon'));
   els.personPanel.hidden = false;
 }
 
@@ -763,10 +768,30 @@ async function loadGiftCatalog() {
 // until you close it with ✕.
 function openGiftModal(preselect) {
   state.giftTargets = new Set(preselect ? [preselect.userId] : []);
+  state.giftSrc = 'coin';
+  for (const b of els.giftSource.children) b.classList.toggle('active', b.dataset.src === 'coin');
   renderRecipients();
   renderGiftGrid();
   els.giftPanel.hidden = false;
 }
+
+// Select all / none of the seated recipients.
+els.giftAll.addEventListener('click', () => {
+  const all = state.seatList.length > 0 && state.giftTargets.size === state.seatList.length;
+  state.giftTargets = all ? new Set() : new Set(state.seatList.map((o) => o.userId));
+  renderRecipients();
+});
+
+els.giftSource.addEventListener('click', async (event) => {
+  const tab = event.target.closest('.lb-tab');
+  if (!tab) return;
+  state.giftSrc = tab.dataset.src;
+  for (const b of els.giftSource.children) b.classList.toggle('active', b === tab);
+  if (state.giftSrc === 'bag') {
+    try { state.bag = (await api('/api/bag')).items; } catch { state.bag = []; }
+  }
+  renderGiftGrid();
+});
 
 function renderRecipients() {
   if (!state.seatList.length) {
@@ -790,6 +815,26 @@ function renderRecipients() {
 }
 
 function renderGiftGrid() {
+  if (state.giftSrc === 'bag') {
+    const items = state.bag ?? [];
+    if (!items.length) {
+      els.giftGrid.innerHTML = `<p class="hint" style="grid-column:1/-1;margin:0">${t('bagEmpty')}</p>`;
+      return;
+    }
+    // Sorted low→high by value; count shown as "4x".
+    els.giftGrid.replaceChildren(...items.map((it) => {
+      const b = document.createElement('button');
+      b.className = 'gift-opt';
+      b.innerHTML = `<span class="gift-emoji">${it.emoji}</span>
+        <span class="gift-name">${it.name || ''}</span>
+        <span class="gift-cost">🪙 ${num.format(it.value)}</span>
+        <span class="gift-count">${it.count}x</span>`;
+      b.addEventListener('click', () => sendBagItem(it));
+      return b;
+    }));
+    return;
+  }
+
   els.giftGrid.replaceChildren(...state.gifts.map((g) => {
     const b = document.createElement('button');
     b.className = 'gift-opt';
@@ -801,7 +846,7 @@ function renderGiftGrid() {
   }));
 }
 
-// Send one gift to every selected recipient. Stops early if you run dry.
+// Coin gift to every selected recipient. Stops early if you run dry.
 async function sendGift(gift) {
   const targets = [...state.giftTargets];
   if (!targets.length) return toast(t('pickRecipients'));
@@ -814,7 +859,7 @@ async function sendGift(gift) {
       sent += 1;
     } catch (error) {
       toast(tError(error));
-      break;   // usually insufficient — stop before charging further
+      break;
     }
   }
   if (sent) {
@@ -823,7 +868,30 @@ async function sendGift(gift) {
     toast(t('giftSent').replace('{gift}', `${gift.emoji}×${sent}`).replace('{name}', `${sent}`));
     loadGiftBoard();
   }
-  // Panel stays open for more gifting.
+}
+
+// Bag gift (a Star Travel winning) to every selected recipient.
+async function sendBagItem(item) {
+  const targets = [...state.giftTargets];
+  if (!targets.length) return toast(t('pickRecipients'));
+  if (item.count < targets.length) return toast(t('bagEmpty'));
+
+  let sent = 0;
+  for (const toUserId of targets) {
+    try {
+      await api('/api/bag/give', { method: 'POST', body: { toUserId, key: item.key, qty: 1 } });
+      sent += 1;
+    } catch (error) {
+      toast(tError(error));
+      break;
+    }
+  }
+  if (sent) {
+    try { state.bag = (await api('/api/bag')).items; } catch { /* keep */ }
+    renderGiftGrid();
+    toast(t('giftSent').replace('{gift}', `${item.emoji}×${sent}`).replace('{name}', `${sent}`));
+    loadGiftBoard();
+  }
 }
 
 els.giftClose.addEventListener('click', () => { els.giftPanel.hidden = true; });

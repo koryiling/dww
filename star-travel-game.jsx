@@ -266,6 +266,18 @@ export default function App() {
     spinTimer.current = setTimeout(() => {
       const items = Array.from({ length: count }, () => weightedPick(cfg.rewards));
       setBag((b) => { const n = { ...b }; items.forEach((g) => (n[g] = (n[g] || 0) + 1)); return n; });
+      // Record winnings into the server bag so they can be gifted in the room.
+      if (authTok) {
+        const counts = {};
+        items.forEach((g) => (counts[g] = (counts[g] || 0) + 1));
+        Object.entries(counts).forEach(([g, qty]) => {
+          fetch("/api/bag/add", {
+            method: "POST",
+            headers: { authorization: "Bearer " + authTok, "content-type": "application/json" },
+            body: JSON.stringify({ key: String(g), emoji: GIFTS[g].emoji, name: GIFTS[g].zh, value: Number(g), qty }),
+          }).catch(() => {});
+        });
+      }
       setResults({ items, mode });
       const big = items.filter((g) => tierOf(g) !== "normal");
       if (big.length) { const mx = Math.max(...big); setBanner({ gold: mx }); setTimeout(() => setBanner(null), 5000); }

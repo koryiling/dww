@@ -526,6 +526,76 @@ async function handle(request, env) {
     return json({ gifts: GIFTS });
   }
 
+  /* -- bag (Star Travel winnings, giftable in the room) -- */
+
+  if (pathname === '/api/bag' && method === 'GET') {
+    const userId = String(url.searchParams.get('userId') ?? me?.id ?? '').trim();
+    if (!userId) return fail(400, 'bad_target', '缺少用户');
+    const { results = [] } = await db.prepare(
+      'SELECT item_key, emoji, name, value, count FROM inventory WHERE user_id = ? AND count > 0 ORDER BY value ASC'
+    ).bind(userId).all();
+    return json({
+      items: results.map((r) => ({ key: r.item_key, emoji: r.emoji, name: r.name, value: r.value, count: r.count })),
+    });
+  }
+
+  // Star Travel records a won item into the bag.
+  if (pathname === '/api/bag/add' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { key, emoji, name, value, qty } = await readJson(request);
+    const k = String(key ?? '').trim();
+    const v = Math.trunc(Number(value));
+    const n = Math.trunc(Number(qty));
+    if (!k || !emoji || !Number.isFinite(v) || v < 0 || !Number.isInteger(n) || n <= 0) {
+      return fail(400, 'bad_item', '无效的物品');
+    }
+    await db.prepare(
+      `INSERT INTO inventory (user_id, item_key, emoji, name, value, count)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (user_id, item_key) DO UPDATE SET count = count + excluded.count`
+    ).bind(me.id, k, String(emoji), String(name ?? ''), v, n).run();
+    return json({ ok: true });
+  }
+
+  // Give a bag item to another player. The receiver keeps 70% of its value as
+  // coins (like a coin gift); the item leaves the sender's bag.
+  if (pathname === '/api/bag/give' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { toUserId, key, qty } = await readJson(request);
+    const k = String(key ?? '').trim();
+    const n = Math.max(1, Math.trunc(Number(qty) || 1));
+
+    const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+      .bind(String(toUserId ?? '').trim()).first();
+    if (!target) return fail(404, 'user_not_found', '找不到该用户');
+    if (target.id === me.id) return fail(400, 'self_gift', '不能给自己送礼物');
+
+    const item = await db.prepare('SELECT * FROM inventory WHERE user_id = ? AND item_key = ?')
+      .bind(me.id, k).first();
+    if (!item || item.count < n) return fail(400, 'not_enough_items', '背包物品不足');
+
+    const totalValue = item.value * n;
+    const received = Math.floor(totalValue * RECEIVER_SHARE);
+    const now = Date.now();
+    const kind = totalValue >= BIG_GIFT ? 'bcast' : 'gift';
+
+    await db.batch([
+      db.prepare('UPDATE inventory SET count = count - ? WHERE user_id = ? AND item_key = ?').bind(n, me.id, k),
+      db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(received, target.id),
+      db.prepare(
+        `INSERT INTO gifts (from_id, from_name, to_id, to_name, gift_id, emoji, cost, received, at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(me.id, me.username, target.id, target.username, `bag:${k}`, item.emoji, totalValue, received, now),
+      db.prepare(
+        `INSERT INTO chat (user_id, username, color, avatar, text, kind, at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
+        JSON.stringify({ from: me.username, to: target.username, emoji: item.emoji, name: item.name, cost: totalValue }),
+        kind, now),
+    ]);
+
+    return json({ ok: true });
+  }
+
   // Star game syncs its balance with the real account. Positive delta = a win,
   // negative = a spend. Guarded so it can never overdraw.
   if (pathname === '/api/coins/adjust' && method === 'POST') {
@@ -878,8 +948,13 @@ async function handle(request, env) {
       const { results = [] } = await db.prepare(
         'SELECT * FROM users ORDER BY username COLLATE NOCASE'
       ).all();
+      const onlineCutoff = Date.now() - 90_000;
       return json({
-        users: results.map((row) => ({ ...publicUser(row), mustReset: !!row.must_reset })),
+        users: results.map((row) => ({
+          ...publicUser(row),
+          mustReset: !!row.must_reset,
+          online: (row.last_seen ?? 0) >= onlineCutoff,
+        })),
       });
     }
 

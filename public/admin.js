@@ -505,20 +505,21 @@ function renderUsers(filter = '') {
   els.userTotal.textContent = allUsers.length;
 
   const head = `<thead><tr>
-    <th>${t('a_colUser')}</th><th>ID</th><th>${t('a_colBirthday')}</th>
-    <th>${t('a_colCoins')}</th><th></th></tr></thead>`;
+    <th>${t('a_colStatus')}</th><th>${t('a_colUser')}</th><th>ID</th>
+    <th>${t('a_colCoins')}</th><th>${t('a_colBirthday')}</th><th></th></tr></thead>`;
 
   if (list.length === 0) {
-    els.usersTable.innerHTML = head + `<tbody><tr><td colspan="5" class="td-empty">${t('a_none')}</td></tr></tbody>`;
+    els.usersTable.innerHTML = head + `<tbody><tr><td colspan="6" class="td-empty">${t('a_none')}</td></tr></tbody>`;
     return;
   }
 
   els.usersTable.innerHTML = head + '<tbody>' + list.map((u) => `
     <tr>
+      <td><span class="status-dot ${u.online ? 'on' : 'off'}"></span>${u.online ? t('a_online') : t('a_offline')}</td>
       <td>${escapeHtml(u.username)}${u.isAdmin ? ' <span class="cell-tag">ADMIN</span>' : ''}</td>
       <td class="mono">${u.id}</td>
+      <td class="mono">🪙 ${num.format(u.coins)}</td>
       <td>${u.birthday ?? '—'}</td>
-      <td class="mono">${num.format(u.coins)}</td>
       <td>${u.mustReset ? `<span class="cell-tag">${t('a_awaitReset')}</span>` : ''}</td>
     </tr>`).join('') + '</tbody>';
 }

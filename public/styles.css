@@ -310,6 +310,16 @@ body {
 .gift-emoji { font-size: 1.9rem; line-height: 1; }
 .gift-name { font-size: 0.8rem; font-weight: 700; }
 .gift-cost { font-size: 0.75rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.gift-count {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fff;
+  background: var(--green-dark);
+  border-radius: 999px;
+  padding: 0 0.4rem;
+  margin-top: 0.15rem;
+}
+.gift-opt { position: relative; }
 
 .seat.giftable { cursor: pointer; }
 .seat.giftable:hover { border-color: var(--gold); background: #fdf6e0; }
@@ -469,6 +479,8 @@ body {
   font-size: 0.9rem;
   cursor: pointer;
 }
+
+.recip-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 
 .gift-recipients {
   display: flex;
@@ -1324,6 +1336,15 @@ body {
   font-size: 0.7rem;
   font-weight: 700;
 }
+
+.status-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+.status-dot.on { background: var(--win); }
+.status-dot.off { background: var(--line); }
 
 .scroll-list { max-height: 360px; overflow-y: auto; }
 .panel-item.pick { cursor: pointer; }

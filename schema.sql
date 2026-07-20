@@ -129,6 +129,19 @@ CREATE INDEX IF NOT EXISTS idx_gifts_at ON gifts(at DESC);
 CREATE INDEX IF NOT EXISTS idx_gifts_from ON gifts(from_id);
 CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_id);
 
+-- Bag: gifts a player won in Star Travel, giftable in the ChatRoom.
+CREATE TABLE IF NOT EXISTS inventory (
+  user_id  TEXT NOT NULL,
+  item_key TEXT NOT NULL,           -- star reward value as a string
+  emoji    TEXT NOT NULL,
+  name     TEXT,
+  value    INTEGER NOT NULL,        -- coin value of one item
+  count    INTEGER NOT NULL,
+  PRIMARY KEY (user_id, item_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_user ON inventory(user_id);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
