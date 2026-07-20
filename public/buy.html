@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>充值 Top-up — 大胃王</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="buy-screen" class="app" hidden>
+  <div class="topbar">
+    <a class="icon-btn wide" href="index.html">← <span data-i18n="backToGame">返回游戏</span></a>
+    <button class="icon-btn wide" id="lang" data-i18n="language">English</button>
+  </div>
+
+  <header class="hero">
+    <h1>💰 <span data-i18n="topupTitle">充值</span></h1>
+    <p class="subtitle" data-i18n="topupSubtitle">选择金额，提交给管理员审批</p>
+    <dl class="stats" style="justify-items:center">
+      <div class="stat" style="justify-content:center">
+        <dt><span class="stat-icon coin">🪙</span> <span data-i18n="coinsLabel">金币：</span></dt>
+        <dd><span id="balance" class="pill">0</span></dd>
+      </div>
+    </dl>
+  </header>
+
+  <!-- Shown only while a request is awaiting a decision -->
+  <section class="card pending-banner" id="pending-banner" hidden>
+    <p class="pending-title">⏳ <span data-i18n="pendingTitle">等待管理员审批</span></p>
+    <p class="pending-amount" id="pending-amount">—</p>
+    <p class="hint" data-i18n="pendingHelp">审批通过后金币会自动加入你的账户。</p>
+  </section>
+
+  <section class="card">
+    <h2 class="admin-h2" data-i18n="chooseAmount">选择充值金额</h2>
+    <div id="amounts" class="amount-grid"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="admin-h2" data-i18n="myRequests">我的申请记录</h2>
+    <ul id="history" class="panel-list"></ul>
+  </section>
+
+  <p id="toast" class="toast" hidden></p>
+</div>
+
+<div id="need-login" class="app auth" hidden>
+  <header class="hero">
+    <h1>💰 <span data-i18n="topupTitle">充值</span></h1>
+    <p class="subtitle" data-i18n="pleaseLogin">请先登录</p>
+  </header>
+  <a class="wide-btn" href="index.html" style="text-decoration:none" data-i18n="backToGame">返回游戏</a>
+</div>
+
+<script src="buy.js" type="module"></script>
+</body>
+</html>

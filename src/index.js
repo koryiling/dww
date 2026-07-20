@@ -354,11 +354,21 @@ async function handle(request, env) {
 
   if (pathname === '/api/topup-request' && method === 'GET') {
     if (!me) return fail(401, 'auth_required', '请先登录');
-    const pending = await db.prepare(
-      `SELECT id, amount, status, created_at FROM topup_requests
-        WHERE user_id = ? ORDER BY id DESC LIMIT 1`
-    ).bind(me.id).first();
-    return json({ request: pending ?? null });
+    const { results = [] } = await db.prepare(
+      `SELECT id, amount, status, created_at, decided_at FROM topup_requests
+        WHERE user_id = ? ORDER BY id DESC LIMIT 10`
+    ).bind(me.id).all();
+
+    return json({
+      request: results[0] ?? null,
+      history: results.map((row) => ({
+        id: row.id,
+        amount: row.amount,
+        status: row.status,
+        createdAt: row.created_at,
+        decidedAt: row.decided_at,
+      })),
+    });
   }
 
   if (pathname === '/api/topup-request' && method === 'POST') {

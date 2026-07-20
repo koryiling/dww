@@ -10,7 +10,7 @@
 
 <!-- ===================== Login / Register / Reset ===================== -->
 <div id="auth-screen" class="app auth">
-  <div class="corner-actions">
+  <div class="topbar end">
     <button class="icon-btn wide" id="lang-auth" data-i18n="language">English</button>
   </div>
 
@@ -55,17 +55,18 @@
 <!-- ===================== Game ===================== -->
 <div id="game-screen" class="app" hidden>
 
-  <!-- Superadmin only; revealed once /api/state confirms the flag. -->
-  <div class="corner-actions left">
-    <a class="icon-btn wide admin-link" id="admin-link" href="admin.html" hidden>
-      ⚙ <span data-i18n="adminPage">管理后台</span>
-    </a>
-  </div>
-
-  <div class="corner-actions">
-    <button class="icon-btn wide" id="lang-game" data-i18n="language">English</button>
-    <button class="icon-btn" id="music" data-i18n-title="music" aria-label="music">♪</button>
-    <button class="icon-btn" id="logout" data-i18n-title="logout" aria-label="logout">⏻</button>
+  <div class="topbar">
+    <!-- Superadmin only; revealed once /api/state confirms the flag. -->
+    <div class="topbar-group">
+      <a class="icon-btn wide admin-link" id="admin-link" href="admin.html" hidden>
+        ⚙ <span data-i18n="adminPage">管理后台</span>
+      </a>
+    </div>
+    <div class="topbar-group">
+      <button class="icon-btn wide" id="lang-game" data-i18n="language">English</button>
+      <button class="icon-btn" id="music" data-i18n-title="music" aria-label="music">♪</button>
+      <button class="icon-btn" id="logout" data-i18n-title="logout" aria-label="logout">⏻</button>
+    </div>
   </div>
 
   <header class="hero">
@@ -99,9 +100,9 @@
 
   <section id="board" class="board" aria-label="board"></section>
 
-  <button id="request-topup" class="wide-btn subtle">
+  <a id="request-topup" class="wide-btn subtle" href="buy.html">
     <span class="wide-btn-icon">💰</span> <span data-i18n="requestTopup">申请充值</span>
-  </button>
+  </a>
   <p id="request-status" class="hint" hidden></p>
 
   <!-- Always on screen -->

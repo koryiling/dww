@@ -262,34 +262,19 @@ function renderStats() {
 
 /* ---- Top-up requests ---- */
 
+// The button is a link to buy.html; here we only surface whether a request
+// is already waiting, so the player isn't left wondering.
 async function loadRequestStatus() {
   try {
     const { request } = await api('/api/topup-request');
     const pending = request?.status === 'pending';
     els.requestStatus.hidden = !pending;
-    els.requestTopup.disabled = pending;
     if (pending) {
       els.requestStatus.textContent =
         t('requestWaiting').replace('{amount}', num.format(request.amount));
     }
   } catch { /* non-critical */ }
 }
-
-els.requestTopup.addEventListener('click', async () => {
-  const input = prompt(t('requestPrompt'), '10000');
-  if (input === null) return;
-
-  const amount = Number(input);
-  if (!Number.isInteger(amount) || amount <= 0) return toast(t('bad_amount'));
-
-  try {
-    await api('/api/topup-request', { method: 'POST', body: { amount } });
-    toast(t('requestSent'));
-    await loadRequestStatus();
-  } catch (error) {
-    toast(tError(error));
-  }
-});
 
 function renderPhaseText() {
   els.phaseText.textContent =
