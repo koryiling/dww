@@ -9,91 +9,175 @@
 <body>
 
 <div id="login-screen" class="app auth">
+  <div class="topbar end">
+    <button class="icon-btn wide" id="lang-login" data-i18n="language">English</button>
+  </div>
   <header class="hero">
-    <h1>管理后台</h1>
-    <p class="subtitle">Superadmin</p>
+    <h1 data-i18n="a_console">管理后台</h1>
+    <p class="subtitle" data-i18n="a_super">超级管理员</p>
   </header>
   <section class="card">
     <form id="login-form" class="form" autocomplete="off">
       <label class="field">
-        <span>用户名 Username</span>
+        <span data-i18n="username">用户名</span>
         <input id="admin-user" type="text" required>
       </label>
       <label class="field">
-        <span>密码 Password</span>
+        <span data-i18n="password">密码</span>
         <input id="admin-pass" type="password" required>
       </label>
       <p id="login-error" class="error" hidden></p>
-      <button type="submit" class="wide-btn">登入 Login</button>
+      <button type="submit" class="wide-btn" data-i18n="a_login">登入</button>
     </form>
   </section>
 </div>
 
-<div id="admin-screen" class="app" hidden>
+<div id="admin-screen" class="app wide" hidden>
   <div class="topbar">
-    <a class="icon-btn wide" href="index.html">← 游戏 Game</a>
-    <button class="icon-btn wide" id="logout">登出</button>
+    <a class="icon-btn wide" href="index.html">← <span data-i18n="a_game">游戏</span></a>
+    <div class="topbar-group">
+      <button class="icon-btn wide" id="lang-admin" data-i18n="language">English</button>
+      <button class="icon-btn wide" id="logout" data-i18n="a_logout">登出</button>
+    </div>
   </div>
 
   <header class="hero">
-    <h1>管理后台</h1>
-    <p class="subtitle">审批 · 充值 · 密码 · 记录</p>
+    <h1 data-i18n="a_console">管理后台</h1>
+    <p class="subtitle" data-i18n="a_super">超级管理员</p>
   </header>
 
-  <!-- Approvals -->
-  <section class="card">
-    <div class="lb-head">
-      <h2 class="admin-h2">
-        ✅ 充值审批 / Top-up approval
-        <span class="panel-tag" id="pending-count">0</span>
-      </h2>
-      <button id="refresh-pending" class="lb-tab active">刷新</button>
+  <!-- Category navigation -->
+  <nav class="cat-nav" id="cat-nav">
+    <button class="cat-btn active" data-cat="appeals">
+      ✅ <span data-i18n="a_appeals">充值审批</span> <span class="cat-badge" id="appeal-badge">0</span>
+    </button>
+    <button class="cat-btn" data-cat="manual">💰 <span data-i18n="a_manual">手动充值</span></button>
+    <button class="cat-btn" data-cat="password">🔑 <span data-i18n="a_password">密码 / 账号</span></button>
+    <button class="cat-btn" data-cat="users">👥 <span data-i18n="a_users">所有用户</span></button>
+    <button class="cat-btn" data-cat="admins" id="cat-admins" hidden>🛡️ <span data-i18n="a_admins">管理员</span></button>
+  </nav>
+
+  <!-- ============ 1. Appeals ============ -->
+  <section class="cat-panel" data-panel="appeals">
+    <div class="card">
+      <div class="lb-head">
+        <h2 class="admin-h2">✅ <span data-i18n="a_approval">充值审批</span>
+          <span class="panel-tag" id="pending-count">0</span></h2>
+        <button id="refresh-pending" class="lb-tab active" data-i18n="a_refresh">刷新</button>
+      </div>
+      <ul id="pending-list" class="panel-list"></ul>
     </div>
-    <ul id="pending-list" class="panel-list"></ul>
+
+    <div class="card">
+      <h2 class="admin-h2">📜 <span data-i18n="a_history">记录</span></h2>
+      <div class="table-wrap"><table class="admin-table" id="appeal-table"></table></div>
+    </div>
   </section>
 
-  <!-- Actions -->
-  <a class="wide-btn" href="topup.html" style="text-decoration:none">
-    <span class="wide-btn-icon">💰</span> 手动充值 / Manual top-up
-  </a>
+  <!-- ============ 2. Manual top-up ============ -->
+  <section class="cat-panel" data-panel="manual" hidden>
+    <div class="two-pane">
+      <div class="card">
+        <h2 class="admin-h2">💰 <span data-i18n="a_manualTitle">手动充值</span></h2>
+        <form id="manual-form" class="form">
+          <label class="field">
+            <span data-i18n="a_targetLabel">用户名或 ID</span>
+            <input id="manual-target" type="text" placeholder="yue / 12345" required>
+          </label>
+          <div id="manual-found" class="found-box" hidden></div>
 
-  <a class="wide-btn subtle" href="reset.html" style="text-decoration:none">
-    <span class="wide-btn-icon">🔑</span> 清除密码 / Clear password
-  </a>
+          <div class="mode-row" id="manual-mode">
+            <button type="button" class="mode-btn active" data-mode="add" data-i18n="a_modeAdd">增加</button>
+            <button type="button" class="mode-btn" data-mode="deduct" data-i18n="a_modeDeduct">扣除</button>
+            <button type="button" class="mode-btn" data-mode="set" data-i18n="a_modeSet">设为</button>
+            <button type="button" class="mode-btn danger" data-mode="clear" data-i18n="a_modeClear">清零</button>
+          </div>
 
-  <!-- Who received the most -->
-  <section class="card">
-    <div class="lb-head">
-      <h2 class="admin-h2">🏆 充值排行 / Top-up ranking</h2>
-      <div class="lb-tabs" id="stat-tabs">
-        <button class="lb-tab active" data-range="today">今日 Today</button>
-        <button class="lb-tab" data-range="allTime">总计 All time</button>
+          <label class="field" id="amount-field">
+            <span data-i18n="a_amount">金额</span>
+            <input id="manual-amount" type="number" step="1" value="10000"
+                   class="big-input" required>
+          </label>
+          <div class="quick-row" id="manual-quick"></div>
+          <p id="manual-error" class="error" hidden></p>
+          <button type="submit" class="wide-btn" id="manual-submit" data-i18n="a_confirm">确认</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="lb-head">
+          <h2 class="admin-h2">👥 <span data-i18n="a_pickUser">选择用户</span></h2>
+          <input id="manual-search" class="mini-input" data-i18n-ph="a_search" placeholder="搜索…">
+        </div>
+        <ul id="manual-users" class="panel-list scroll-list"></ul>
       </div>
     </div>
-    <ol id="stat-list" class="lb-list"></ol>
+
+    <div class="card">
+      <h2 class="admin-h2">📜 <span data-i18n="a_history">记录</span></h2>
+      <div class="table-wrap"><table class="admin-table" id="manual-table"></table></div>
+    </div>
   </section>
 
-  <!-- Audit trail -->
-  <section class="card">
-    <div class="lb-head">
-      <h2 class="admin-h2">📜 操作记录 / History</h2>
-      <div class="lb-tabs" id="audit-tabs">
-        <button class="lb-tab active" data-action="">全部</button>
-        <button class="lb-tab" data-action="topup_approve">审批</button>
-        <button class="lb-tab" data-action="topup_manual">手动</button>
-        <button class="lb-tab" data-action="clear_password">密码</button>
+  <!-- ============ 3. Password / Account ============ -->
+  <section class="cat-panel" data-panel="password" hidden>
+    <div class="card">
+      <h2 class="admin-h2">🔑 <span data-i18n="a_pwTitle">密码 / 账号</span></h2>
+      <form id="pw-search-form" class="form">
+        <label class="field">
+          <span data-i18n="a_searchLabel">搜索用户名或 ID</span>
+          <input id="pw-search" type="text" placeholder="username / id" required>
+        </label>
+        <button type="submit" class="wide-btn" data-i18n="a_search">搜索</button>
+      </form>
+      <ul id="pw-results" class="panel-list"></ul>
+      <p class="hint" style="text-align:left" data-i18n="a_pwHint"></p>
+    </div>
+
+    <div class="card">
+      <h2 class="admin-h2">📜 <span data-i18n="a_history">记录</span></h2>
+      <div class="table-wrap"><table class="admin-table" id="pw-table"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ 5. Admins (super only) ============ -->
+  <section class="cat-panel" data-panel="admins" hidden>
+    <div class="card">
+      <h2 class="admin-h2">🛡️ <span data-i18n="a_addAdmin">添加 / 修改管理员</span></h2>
+      <form id="grant-form" class="form">
+        <label class="field">
+          <span data-i18n="a_targetLabel">用户名或 ID</span>
+          <input id="grant-target" type="text" placeholder="username / id" required>
+        </label>
+        <div class="perm-grid" id="perm-grid">
+          <label class="perm-chk"><input type="checkbox" value="appeals"> <span data-i18n="a_appeals">充值审批</span></label>
+          <label class="perm-chk"><input type="checkbox" value="manual"> <span data-i18n="a_manual">手动充值</span></label>
+          <label class="perm-chk"><input type="checkbox" value="password"> <span data-i18n="a_password">密码 / 账号</span></label>
+          <label class="perm-chk"><input type="checkbox" value="users"> <span data-i18n="a_users">所有用户</span></label>
+          <label class="perm-chk"><input type="checkbox" value="admins"> <span data-i18n="a_admins">管理员</span></label>
+        </div>
+        <p class="hint" style="text-align:left" data-i18n="a_grantHint"></p>
+        <p id="grant-error" class="error" hidden></p>
+        <button type="submit" class="wide-btn" data-i18n="a_saveAdmin">保存管理员</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 class="admin-h2">🛡️ <span data-i18n="a_currentAdmins">现有管理员</span></h2>
+      <ul id="admin-list" class="panel-list"></ul>
+    </div>
+  </section>
+
+  <!-- ============ 4. All users ============ -->
+  <section class="cat-panel" data-panel="users" hidden>
+    <div class="card">
+      <div class="lb-head">
+        <h2 class="admin-h2">👥 <span data-i18n="a_allUsers">所有用户</span>
+          <span class="panel-tag" id="user-total">0</span></h2>
+        <input id="user-filter" class="mini-input" data-i18n-ph="a_search" placeholder="搜索…">
       </div>
+      <div class="table-wrap"><table class="admin-table" id="users-table"></table></div>
     </div>
-    <ul id="audit-list" class="panel-list"></ul>
-  </section>
-
-  <!-- Players -->
-  <section class="card">
-    <div class="lb-head">
-      <h2 class="admin-h2">👥 玩家 / Players</h2>
-      <button id="refresh-users" class="lb-tab active">刷新</button>
-    </div>
-    <ul id="user-list" class="panel-list"></ul>
   </section>
 
   <p id="toast" class="toast" hidden></p>

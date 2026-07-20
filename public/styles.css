@@ -469,7 +469,11 @@ body {
 
 .profile { display: grid; gap: 0.6rem; }
 
-.profile-head { display: flex; align-items: center; gap: 0.6rem; }
+.profile-head { display: flex; align-items: center; gap: 0.6rem; cursor: pointer; }
+
+.profile-caret { color: var(--ink-soft); transition: transform 0.2s; }
+.profile.collapsed .profile-caret { transform: rotate(-90deg); }
+.profile.collapsed .profile-body { display: none; }
 
 .profile-dot {
   width: 34px;
@@ -598,6 +602,165 @@ body {
 .rank-1 .podium-step { height: 54px; line-height: 54px; background: linear-gradient(180deg, var(--gold), #c9971d); color: #3d2f06; }
 .rank-2 .podium-step { height: 38px; line-height: 38px; }
 .rank-3 .podium-step { height: 28px; line-height: 28px; }
+
+/* ---- Admin categories ---- */
+
+.cat-nav {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+@media (min-width: 640px) {
+  .cat-nav { grid-template-columns: repeat(4, 1fr); }
+}
+
+.cat-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.5rem;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: clamp(0.8rem, 3vw, 0.95rem);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.cat-btn.active {
+  background: linear-gradient(180deg, var(--green), var(--green-dark));
+  border-color: var(--green-dark);
+  color: #fff;
+}
+
+.cat-badge {
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.75rem;
+}
+
+.cat-badge.zero { background: var(--line); color: var(--ink-soft); }
+
+.cat-panel { display: grid; gap: clamp(0.55rem, 2.5vw, 0.9rem); }
+
+.two-pane { display: grid; gap: clamp(0.55rem, 2.5vw, 0.9rem); }
+
+@media (min-width: 760px) {
+  .two-pane { grid-template-columns: 1fr 1fr; align-items: start; }
+}
+
+/* Data tables */
+
+.table-wrap { overflow-x: auto; }
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.admin-table th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  border-bottom: 2px solid var(--line);
+}
+
+.admin-table td {
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.admin-table .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+.td-empty { text-align: center; color: var(--ink-soft); padding: 1rem; }
+
+.cell-tag {
+  padding: 0.05rem 0.4rem;
+  border-radius: 6px;
+  background: var(--pill-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.scroll-list { max-height: 360px; overflow-y: auto; }
+.panel-item.pick { cursor: pointer; }
+.panel-item.pick:hover { border-color: var(--green); background: #f3fae4; }
+
+.found-box {
+  padding: 0.5rem 0.7rem;
+  background: #eef8dc;
+  border: 2px solid var(--green);
+  border-radius: 12px;
+  font-size: 0.88rem;
+}
+
+.mini-input {
+  padding: 0.35rem 0.6rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--card-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  max-width: 45%;
+}
+
+.lb-tab.danger {
+  background: #fbe6e0;
+  border: 1px solid #e0a595;
+  color: var(--red);
+}
+
+.lb-tab.danger:hover { background: var(--red); color: #fff; }
+
+.mode-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; }
+
+.mode-btn {
+  padding: 0.5rem 0.3rem;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--card-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: clamp(0.72rem, 2.8vw, 0.9rem);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mode-btn.active { background: linear-gradient(180deg, var(--green), var(--green-dark)); border-color: var(--green-dark); color: #fff; }
+.mode-btn.danger.active { background: linear-gradient(180deg, #e0603c, var(--red)); border-color: var(--red); }
+
+.perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+
+.perm-chk {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--card-2);
+  border: 2px solid var(--line-soft);
+  border-radius: 10px;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+
+.perm-chk input { width: 18px; height: 18px; accent-color: var(--green); }
+
+.show-more {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+}
 
 /* Top-up amount cards */
 

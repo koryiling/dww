@@ -27,6 +27,13 @@ const json = (body, status = 200) =>
 
 const fail = (status, code, error) => json({ error, code }, status);
 
+const ALL_PERMS = ['appeals', 'manual', 'password', 'users', 'admins'];
+
+const permsOf = (row) =>
+  row.is_super ? ALL_PERMS : (row.perms ? row.perms.split(',').filter(Boolean) : []);
+
+const hasPerm = (row, perm) => !!row.is_super || permsOf(row).includes(perm);
+
 const publicUser = (row) => ({
   id: row.id,
   username: row.username,
@@ -34,6 +41,8 @@ const publicUser = (row) => ({
   birthday: row.birthday ?? null,
   coins: row.coins,
   isAdmin: !!row.is_admin,
+  isSuper: !!row.is_super,
+  perms: permsOf(row),
 });
 
 async function readJson(request) {
@@ -204,12 +213,13 @@ async function handle(request, env) {
       .bind(lower).first();
     if (taken) return fail(409, 'name_taken', '该用户名已被使用');
 
-    // The reserved name becomes superadmin — but only while no admin exists,
-    // so it can't be claimed a second time.
-    let isAdmin = 0;
+    // The reserved name becomes THE superadmin — but only while no super
+    // exists, so it can't be claimed a second time. Regular admins are made
+    // later by the super, via /api/admin/grant.
+    let isSuper = 0;
     if (lower === String(env.ADMIN_USER ?? '').toLowerCase()) {
-      const existing = await db.prepare('SELECT id FROM users WHERE is_admin = 1').first();
-      if (!existing) isAdmin = 1;
+      const existing = await db.prepare('SELECT id FROM users WHERE is_super = 1').first();
+      if (!existing) isSuper = 1;
     }
 
     const { salt, hash } = await hashPassword(String(password));
@@ -227,14 +237,14 @@ async function handle(request, env) {
 
     await db.prepare(
       `INSERT INTO users
-         (id, username, username_lower, salt, hash, color, coins, is_admin, must_reset, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-    ).bind(id, name, lower, salt, hash, color, STARTING_COINS, isAdmin, Date.now()).run();
+         (id, username, username_lower, salt, hash, color, coins, is_admin, is_super, must_reset, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+    ).bind(id, name, lower, salt, hash, color, STARTING_COINS, isSuper, isSuper, Date.now()).run();
 
     const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
     await logAction(db, {
       action: 'register', target: user, amount: STARTING_COINS,
-      detail: isAdmin ? 'superadmin' : null,
+      detail: isSuper ? 'superadmin' : null,
     });
     return json({ token: await startSession(db, id), user: publicUser(user) });
   }
@@ -566,6 +576,48 @@ async function handle(request, env) {
     if (!me) return fail(401, 'auth_required', '请先登录');
     if (!me.is_admin) return fail(403, 'admin_required', '需要管理员权限');
 
+    // Each route belongs to a permission category; a regular admin only
+    // reaches the ones the super granted. lookup/search/users are shared
+    // read helpers, so they need only *some* admin standing.
+    const ROUTE_PERM = {
+      '/api/admin/topups': 'appeals',
+      '/api/admin/topup-decide': 'appeals',
+      '/api/admin/reload': 'manual',
+      '/api/admin/set-coins': 'manual',
+      '/api/admin/clear-password': 'password',
+      '/api/admin/delete-user': 'password',
+      '/api/admin/grant': 'admins',
+      '/api/admin/revoke': 'admins',
+    };
+    const needed = ROUTE_PERM[pathname];
+    if (needed && !hasPerm(me, needed)) {
+      return fail(403, 'no_permission', '没有该权限');
+    }
+
+    // Create or update a regular admin with a chosen set of permissions.
+    // Super only. The super account itself cannot be demoted here.
+    if (pathname === '/api/admin/grant' && method === 'POST') {
+      if (!me.is_super) return fail(403, 'super_only', '仅超级管理员可操作');
+      const { userId, perms } = await readJson(request);
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(String(userId ?? '').trim()).first();
+      if (!target) return fail(404, 'user_not_found', '找不到该用户 ID');
+      if (target.is_super) return fail(403, 'super_only', '不能修改超级管理员');
+
+      const clean = (Array.isArray(perms) ? perms : [])
+        .filter((p) => ALL_PERMS.includes(p));
+      const isAdmin = clean.length > 0 ? 1 : 0;
+
+      await db.prepare('UPDATE users SET is_admin = ?, perms = ? WHERE id = ?')
+        .bind(isAdmin, clean.join(','), target.id).run();
+      const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(target.id).first();
+      await logAction(db, {
+        action: isAdmin ? 'grant_admin' : 'revoke_admin', actor: me, target: updated,
+        detail: clean.join(',') || 'none',
+      });
+      return json({ user: publicUser(updated) });
+    }
+
     if (pathname === '/api/admin/users' && method === 'GET') {
       const { results = [] } = await db.prepare(
         'SELECT * FROM users ORDER BY username COLLATE NOCASE'
@@ -573,6 +625,14 @@ async function handle(request, env) {
       return json({
         users: results.map((row) => ({ ...publicUser(row), mustReset: !!row.must_reset })),
       });
+    }
+
+    // Just the admins, for the Admins category.
+    if (pathname === '/api/admin/admins' && method === 'GET') {
+      const { results = [] } = await db.prepare(
+        'SELECT * FROM users WHERE is_admin = 1 ORDER BY is_super DESC, username COLLATE NOCASE'
+      ).all();
+      return json({ admins: results.map(publicUser) });
     }
 
     // Step 1 of the top-up flow: the admin keys in an ID and gets the name
@@ -686,14 +746,21 @@ async function handle(request, env) {
 
     if (pathname === '/api/admin/audit' && method === 'GET') {
       const action = url.searchParams.get('action');
+      // Default page is 10; the UI asks for more on demand. One extra row is
+      // fetched so the client can tell whether a "show more" button is needed.
+      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
+      const probe = limit + 1;
+
       const query = action
-        ? db.prepare('SELECT * FROM audit_log WHERE action = ? ORDER BY at DESC LIMIT 200')
-            .bind(action)
-        : db.prepare('SELECT * FROM audit_log ORDER BY at DESC LIMIT 200');
+        ? db.prepare('SELECT * FROM audit_log WHERE action = ? ORDER BY at DESC LIMIT ?')
+            .bind(action, probe)
+        : db.prepare('SELECT * FROM audit_log ORDER BY at DESC LIMIT ?').bind(probe);
 
       const { results = [] } = await query.all();
+      const hasMore = results.length > limit;
       return json({
-        entries: results.map((row) => ({
+        hasMore,
+        entries: results.slice(0, limit).map((row) => ({
           id: row.id, at: row.at, action: row.action,
           actorId: row.actor_id, actorName: row.actor_name,
           targetId: row.target_id, targetName: row.target_name,
@@ -751,6 +818,27 @@ async function handle(request, env) {
       return json({ user: publicUser(updated) });
     }
 
+    // Set an absolute balance — used by "clear to 0" and by keying in an
+    // exact figure. Logged as a manual top-up with the signed difference.
+    if (pathname === '/api/admin/set-coins' && method === 'POST') {
+      const { userId, coins } = await readJson(request);
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(String(userId ?? '').trim()).first();
+      if (!target) return fail(404, 'user_not_found', '找不到该用户 ID');
+
+      const value = Number(coins);
+      if (!Number.isInteger(value) || value < 0) return fail(400, 'bad_amount', '金额无效');
+
+      const delta = value - target.coins;
+      await db.prepare('UPDATE users SET coins = ? WHERE id = ?').bind(value, target.id).run();
+      const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(target.id).first();
+      await logAction(db, {
+        action: 'topup_manual', actor: me, target: updated, amount: delta,
+        detail: `set to ${value}`,
+      });
+      return json({ user: publicUser(updated) });
+    }
+
     // Forgot-password: the admin clears it, the user sets the new one.
     // The admin never sees or chooses it.
     if (pathname === '/api/admin/clear-password' && method === 'POST') {
@@ -772,6 +860,32 @@ async function handle(request, env) {
 
       await logAction(db, { action: 'clear_password', actor: me, target });
       return json({ user: { ...publicUser(target), mustReset: true } });
+    }
+
+    // Deleting an account is destructive and irreversible, so it requires the
+    // admin to echo the exact username back — a deliberate confirmation gate.
+    if (pathname === '/api/admin/delete-user' && method === 'POST') {
+      const { userId, confirm } = await readJson(request);
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(String(userId ?? '').trim()).first();
+      if (!target) return fail(404, 'user_not_found', '找不到该用户 ID');
+      if (target.is_admin) return fail(403, 'admin_protected', '不能删除管理员账号');
+      if (String(confirm ?? '').trim() !== target.username) {
+        return fail(400, 'confirm_mismatch', '确认用户名不匹配');
+      }
+
+      await db.batch([
+        db.prepare('DELETE FROM bets WHERE user_id = ?').bind(target.id),
+        db.prepare('DELETE FROM records WHERE user_id = ?').bind(target.id),
+        db.prepare('DELETE FROM topup_requests WHERE user_id = ?').bind(target.id),
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(target.id),
+        db.prepare('DELETE FROM users WHERE id = ?').bind(target.id),
+      ]);
+
+      // The audit row is kept — the account is gone but the record of its
+      // deletion stays.
+      await logAction(db, { action: 'delete_user', actor: me, target });
+      return json({ ok: true });
     }
   }
 

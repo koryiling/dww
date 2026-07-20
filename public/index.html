@@ -127,28 +127,30 @@
     <!-- ---------- side column ---------- -->
     <aside class="side-col" id="sidebar">
 
-      <!-- Profile -->
-      <section class="card profile">
-        <div class="profile-head">
+      <!-- Profile — click the header to expand -->
+      <section class="card profile collapsed" id="profile">
+        <div class="profile-head" id="profile-head">
           <span class="profile-dot" id="player-dot"></span>
           <div class="profile-who">
             <p class="profile-name" id="player-name">—</p>
             <p class="profile-id">ID <strong id="player-id">—</strong></p>
           </div>
           <button class="icon-btn" id="refresh" data-i18n-title="refresh" aria-label="refresh">⟳</button>
+          <span class="profile-caret" id="profile-caret">▾</span>
         </div>
 
-        <p class="profile-row">
-          <span data-i18n="birthday">生日</span>
-          <strong id="player-birthday">—</strong>
-        </p>
+        <div class="profile-body">
+          <p class="profile-row">
+            <span data-i18n="birthday">生日</span>
+            <strong id="player-birthday">—</strong>
+          </p>
 
-        <div class="profile-actions">
-          <button class="lb-tab active" id="edit-profile" data-i18n="edit">编辑资料</button>
-          <button class="lb-tab" id="logout" data-i18n="logout">登出</button>
-        </div>
+          <div class="profile-actions">
+            <button class="lb-tab active" id="edit-profile" data-i18n="edit">编辑资料</button>
+            <button class="lb-tab" id="logout" data-i18n="logout">登出</button>
+          </div>
 
-        <form id="profile-form" class="form" hidden>
+          <form id="profile-form" class="form" hidden>
           <label class="field">
             <span data-i18n="username">用户名</span>
             <input id="edit-name" type="text" maxlength="16">
@@ -166,7 +168,8 @@
             <button type="button" class="wide-btn subtle" id="cancel-edit" data-i18n="cancel">取消</button>
             <button type="submit" class="wide-btn" data-i18n="save">保存</button>
           </div>
-        </form>
+          </form>
+        </div>
       </section>
 
       <!-- Personal dashboard -->

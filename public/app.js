@@ -182,6 +182,13 @@ els.sideToggle.addEventListener('click', () => {
   }
 });
 
+// Profile starts collapsed; clicking the header (but not the refresh button)
+// expands it.
+$('profile-head').addEventListener('click', (event) => {
+  if (event.target.closest('#refresh')) return;
+  $('profile').classList.toggle('collapsed');
+});
+
 els.refresh.addEventListener('click', async () => {
   els.refresh.classList.add('spinning');
   await Promise.all([poll(), loadRoundTop(), loadLeaderboard(), loadStats(), loadRequestStatus()]);

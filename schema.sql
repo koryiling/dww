@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
   birthday       TEXT,                   -- YYYY-MM-DD, optional
   coins          INTEGER NOT NULL,
   is_admin       INTEGER NOT NULL DEFAULT 0,
+  is_super       INTEGER NOT NULL DEFAULT 0,   -- the one account that can grant admin
+  perms          TEXT,                          -- comma list: appeals,manual,password,users,admins
   must_reset     INTEGER NOT NULL DEFAULT 0,
   created_at     INTEGER NOT NULL
 );
