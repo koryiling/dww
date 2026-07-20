@@ -6,26 +6,68 @@
 
 import { createHmac } from 'node:crypto';
 
-export const ANIMALS = [
-  { id: 'turtle',   name: '乌龟', en: 'Turtle',   art: '🐢', weight: 19.4, payout: 5,  plate: '菜盘' },
-  { id: 'hedgehog', name: '刺猬', en: 'Hedgehog', art: '🦔', weight: 19.4, payout: 5,  plate: '菜盘' },
-  { id: 'raccoon',  name: '浣熊', en: 'Raccoon',  art: '🦝', weight: 19.4, payout: 5,  plate: '菜盘' },
-  { id: 'elephant', name: '小象', en: 'Elephant', art: '🐘', weight: 19.4, payout: 5,  plate: '菜盘' },
-  { id: 'cat',      name: '猫咪', en: 'Cat',      art: '🐱', weight: 9.7,  payout: 10, plate: '肉盘' },
-  { id: 'fox',      name: '狐狸', en: 'Fox',      art: '🦊', weight: 6.5,  payout: 15, plate: '肉盘' },
-  { id: 'pig',      name: '猪猪', en: 'Pig',      art: '🐷', weight: 3.9,  payout: 25, plate: '肉盘' },
-  { id: 'lion',     name: '狮子', en: 'Lion',     art: '🦁', weight: 2.2,  payout: 45, plate: '肉盘' },
+// Kept identical to src/wheel.js — see the comments there for the derivation.
+export const TARGET_RTP = 1.00;
+
+const PLATE_SPLIT = { veg: 15, meat: 8 };
+
+const ANIMAL_SPEC = [
+  { id: 'turtle',   name: '乌龟', en: 'Turtle',   art: '🐢', payout: 5,  plate: '菜盘' },
+  { id: 'hedgehog', name: '刺猬', en: 'Hedgehog', art: '🦔', payout: 5,  plate: '菜盘' },
+  { id: 'raccoon',  name: '浣熊', en: 'Raccoon',  art: '🦝', payout: 5,  plate: '菜盘' },
+  { id: 'elephant', name: '小象', en: 'Elephant', art: '🐘', payout: 5,  plate: '菜盘' },
+  { id: 'cat',      name: '猫咪', en: 'Cat',      art: '🐱', payout: 10, plate: '肉盘' },
+  { id: 'fox',      name: '狐狸', en: 'Fox',      art: '🦊', payout: 15, plate: '肉盘' },
+  { id: 'pig',      name: '猪猪', en: 'Pig',      art: '🐷', payout: 25, plate: '肉盘' },
+  { id: 'lion',     name: '狮子', en: 'Lion',     art: '🦁', payout: 45, plate: '肉盘' },
 ];
+
+const PLATE_SPEC = [
+  { id: 'veg',  name: '菜盘', art: '🥬' },
+  { id: 'meat', name: '肉盘', art: '🍖' },
+];
+
+// w_i = 100R / payout_i - P, with the plate weights pinned by sum = 100.
+function deriveWeights() {
+  const inverseSum = ANIMAL_SPEC.reduce((sum, a) => sum + (100 * TARGET_RTP) / a.payout, 0);
+  const perPlate = PLATE_SPEC.map((p) =>
+    ANIMAL_SPEC.filter((a) => a.plate === p.name).length);
+
+  if (new Set(perPlate).size !== 1) {
+    throw new Error('deriveWeights assumes every plate holds the same number of animals');
+  }
+
+  const plateTotal = (inverseSum - 100) / (perPlate[0] - 1);
+  if (plateTotal < 0) {
+    throw new Error(`TARGET_RTP ${TARGET_RTP} needs negative plate weight — unreachable`);
+  }
+
+  const splitTotal = PLATE_SPLIT.veg + PLATE_SPLIT.meat;
+  const plates = PLATE_SPEC.map((p) => ({
+    ...p,
+    weight: (plateTotal * PLATE_SPLIT[p.id]) / splitTotal,
+  }));
+  const plateWeightByName = new Map(plates.map((p) => [p.name, p.weight]));
+
+  const animals = ANIMAL_SPEC.map((a) => {
+    const weight = (100 * TARGET_RTP) / a.payout - plateWeightByName.get(a.plate);
+    if (weight <= 0) throw new Error(`${a.name} weight ${weight} — payout too high`);
+    return { ...a, weight };
+  });
+
+  return { animals, plates };
+}
+
+const derived = deriveWeights();
+
+export const ANIMALS = derived.animals;
 
 // Hidden spots — they hold wheel weight but are never shown on the board.
 // When one lands, every animal on that plate pays out together.
-export const PLATES = [
-  { id: 'veg',  name: '菜盘', art: '🥬', weight: 1.5 },
-  { id: 'meat', name: '肉盘', art: '🍖', weight: 0.8 },
-];
+export const PLATES = derived.plates;
 
 const WHEEL = [...ANIMALS, ...PLATES];
-const TOTAL_WEIGHT = WHEEL.reduce((sum, s) => sum + s.weight, 0); // 102.2
+const TOTAL_WEIGHT = WHEEL.reduce((sum, s) => sum + s.weight, 0); // 100 by construction
 
 const plateMembers = new Map(
   PLATES.map((p) => [p.id, ANIMALS.filter((a) => a.plate === p.name)])

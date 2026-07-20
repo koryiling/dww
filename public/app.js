@@ -26,6 +26,8 @@ const els = {
   playerName: $('player-name'), playerId: $('player-id'), playerDot: $('player-dot'),
   phaseText: $('phase-text'), toast: $('toast'), logout: $('logout'),
   lbTabs: $('lb-tabs'), lbList: $('lb-list'),
+  adminLink: $('admin-link'), requestTopup: $('request-topup'),
+  requestStatus: $('request-status'),
   viewRecords: $('view-records'), pastResults: $('past-results'),
   panel: $('panel'), panelTitle: $('panel-title'),
   panelList: $('panel-list'), panelClose: $('panel-close'),
@@ -255,7 +257,39 @@ function renderStats() {
   els.playerId.textContent = `#${state.me.id}`;
   els.playerDot.style.background = state.me.color;
   document.documentElement.style.setProperty('--user-color', state.me.color);
+  els.adminLink.hidden = !state.me.isAdmin;
 }
+
+/* ---- Top-up requests ---- */
+
+async function loadRequestStatus() {
+  try {
+    const { request } = await api('/api/topup-request');
+    const pending = request?.status === 'pending';
+    els.requestStatus.hidden = !pending;
+    els.requestTopup.disabled = pending;
+    if (pending) {
+      els.requestStatus.textContent =
+        t('requestWaiting').replace('{amount}', num.format(request.amount));
+    }
+  } catch { /* non-critical */ }
+}
+
+els.requestTopup.addEventListener('click', async () => {
+  const input = prompt(t('requestPrompt'), '10000');
+  if (input === null) return;
+
+  const amount = Number(input);
+  if (!Number.isInteger(amount) || amount <= 0) return toast(t('bad_amount'));
+
+  try {
+    await api('/api/topup-request', { method: 'POST', body: { amount } });
+    toast(t('requestSent'));
+    await loadRequestStatus();
+  } catch (error) {
+    toast(tError(error));
+  }
+});
 
 function renderPhaseText() {
   els.phaseText.textContent =
@@ -487,8 +521,10 @@ async function enterGame(user) {
 
   await poll();
   await loadLeaderboard();
+  await loadRequestStatus();
 
   setInterval(tickClock, 200);
+  setInterval(loadRequestStatus, 30_000);
   // Slow safety net — tickClock polls on every phase change, so this only
   // catches drift and background tabs. Two round-trips per 65s round keeps
   // a full table of players inside Cloudflare's free request allowance.

@@ -55,6 +55,13 @@
 <!-- ===================== Game ===================== -->
 <div id="game-screen" class="app" hidden>
 
+  <!-- Superadmin only; revealed once /api/state confirms the flag. -->
+  <div class="corner-actions left">
+    <a class="icon-btn wide admin-link" id="admin-link" href="admin.html" hidden>
+      ⚙ <span data-i18n="adminPage">管理后台</span>
+    </a>
+  </div>
+
   <div class="corner-actions">
     <button class="icon-btn wide" id="lang-game" data-i18n="language">English</button>
     <button class="icon-btn" id="music" data-i18n-title="music" aria-label="music">♪</button>
@@ -91,6 +98,11 @@
   <section id="chips" class="chip-row" aria-label="chips"></section>
 
   <section id="board" class="board" aria-label="board"></section>
+
+  <button id="request-topup" class="wide-btn subtle">
+    <span class="wide-btn-icon">💰</span> <span data-i18n="requestTopup">申请充值</span>
+  </button>
+  <p id="request-status" class="hint" hidden></p>
 
   <!-- Always on screen -->
   <section class="card leaderboard">

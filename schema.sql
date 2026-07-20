@@ -53,6 +53,42 @@ CREATE INDEX IF NOT EXISTS idx_records_at ON records(at);
 CREATE INDEX IF NOT EXISTS idx_records_round ON records(round_id);
 CREATE INDEX IF NOT EXISTS idx_records_user ON records(user_id);
 
+-- Players ask for coins; the superadmin approves or rejects.
+-- `credited` guards the payout the same way records.paid does, so approving
+-- twice cannot pay twice.
+CREATE TABLE IF NOT EXISTS topup_requests (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    TEXT NOT NULL REFERENCES users(id),
+  amount     INTEGER NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'pending',   -- pending | approved | rejected
+  credited   INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  decided_at INTEGER,
+  decided_by TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_topup_status ON topup_requests(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_topup_user ON topup_requests(user_id);
+
+-- Append-only record of every action that moves money or changes access:
+-- who did it, to whom, how much, when. Never updated or deleted.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  at          INTEGER NOT NULL,
+  action      TEXT NOT NULL,    -- topup_manual | topup_approve | topup_reject
+                                -- | topup_request | clear_password | register
+  actor_id    TEXT,             -- NULL when the player acted on themselves
+  actor_name  TEXT,
+  target_id   TEXT,
+  target_name TEXT,
+  amount      INTEGER,
+  detail      TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action, at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target_id, at DESC);
+
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL

@@ -39,6 +39,21 @@ async function readJson(request) {
   try { return await request.json(); } catch { return {}; }
 }
 
+// Append-only audit trail. Every money movement and access change goes
+// through here so "who gave whom how much, and when" is always answerable.
+function logAction(db, { action, actor, target, amount = null, detail = null }) {
+  return db.prepare(
+    `INSERT INTO audit_log
+       (at, action, actor_id, actor_name, target_id, target_name, amount, detail)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(
+    Date.now(), action,
+    actor?.id ?? null, actor?.username ?? null,
+    target?.id ?? null, target?.username ?? null,
+    amount, detail
+  ).run();
+}
+
 async function getSecret(db) {
   const row = await db.prepare('SELECT value FROM meta WHERE key = ?').bind('secret').first();
   if (row) return row.value;
@@ -216,6 +231,10 @@ async function handle(request, env) {
     ).bind(id, name, lower, salt, hash, color, STARTING_COINS, isAdmin, Date.now()).run();
 
     const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
+    await logAction(db, {
+      action: 'register', target: user, amount: STARTING_COINS,
+      detail: isAdmin ? 'superadmin' : null,
+    });
     return json({ token: await startSession(db, id), user: publicUser(user) });
   }
 
@@ -331,6 +350,40 @@ async function handle(request, env) {
     return json({ user: publicUser(user), myBets });
   }
 
+  /* -- top-up requests (player side) -- */
+
+  if (pathname === '/api/topup-request' && method === 'GET') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const pending = await db.prepare(
+      `SELECT id, amount, status, created_at FROM topup_requests
+        WHERE user_id = ? ORDER BY id DESC LIMIT 1`
+    ).bind(me.id).first();
+    return json({ request: pending ?? null });
+  }
+
+  if (pathname === '/api/topup-request' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { amount } = await readJson(request);
+    const want = Number(amount);
+
+    if (!Number.isInteger(want) || want <= 0 || want > 1_000_000) {
+      return fail(400, 'bad_amount', '金额无效');
+    }
+    // One open request at a time, so the queue can't be flooded.
+    const open = await db.prepare(
+      "SELECT id FROM topup_requests WHERE user_id = ? AND status = 'pending'"
+    ).bind(me.id).first();
+    if (open) return fail(409, 'request_pending', '你已有一个待审批的申请');
+
+    await db.prepare(
+      `INSERT INTO topup_requests (user_id, amount, status, credited, created_at)
+       VALUES (?, ?, 'pending', 0, ?)`
+    ).bind(me.id, want, Date.now()).run();
+
+    await logAction(db, { action: 'topup_request', target: me, amount: want });
+    return json({ ok: true });
+  }
+
   if (pathname === '/api/records' && method === 'GET') {
     // Every player can see every player's records, by design.
     const userId = url.searchParams.get('userId');
@@ -434,6 +487,133 @@ async function handle(request, env) {
       });
     }
 
+    /* -- approval queue -- */
+
+    if (pathname === '/api/admin/topups' && method === 'GET') {
+      const status = url.searchParams.get('status') ?? 'pending';
+      const { results = [] } = await db.prepare(
+        `SELECT t.*, u.username, u.color, u.coins
+           FROM topup_requests t JOIN users u ON u.id = t.user_id
+          WHERE t.status = ?
+          ORDER BY t.created_at DESC LIMIT 100`
+      ).bind(status).all();
+
+      return json({
+        requests: results.map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          username: row.username,
+          color: row.color,
+          coins: row.coins,
+          amount: row.amount,
+          status: row.status,
+          createdAt: row.created_at,
+        })),
+      });
+    }
+
+    if (pathname === '/api/admin/topup-decide' && method === 'POST') {
+      const { id, action } = await readJson(request);
+      if (!['approve', 'reject'].includes(action)) {
+        return fail(400, 'bad_action', '无效的操作');
+      }
+
+      const req = await db.prepare(
+        `SELECT t.*, u.username FROM topup_requests t JOIN users u ON u.id = t.user_id
+          WHERE t.id = ?`
+      ).bind(Number(id)).first();
+      if (!req) return fail(404, 'request_not_found', '找不到该申请');
+      if (req.status !== 'pending') return fail(409, 'already_decided', '该申请已处理');
+
+      if (action === 'reject') {
+        const done = await db.prepare(
+          `UPDATE topup_requests SET status = 'rejected', decided_at = ?, decided_by = ?
+            WHERE id = ? AND status = 'pending'`
+        ).bind(Date.now(), me.id, req.id).run();
+        if (done.meta.changes !== 1) return fail(409, 'already_decided', '该申请已处理');
+
+        await logAction(db, {
+          action: 'topup_reject', actor: me,
+          target: { id: req.user_id, username: req.username }, amount: req.amount,
+        });
+        return json({ ok: true, status: 'rejected' });
+      }
+
+      // Same guard pattern as settlement: statement 2 only fires while the
+      // row it just approved is still uncredited, so a double approve —
+      // whether from a double click or two admins at once — pays once.
+      await db.batch([
+        db.prepare(
+          `UPDATE topup_requests SET status = 'approved', decided_at = ?, decided_by = ?
+            WHERE id = ? AND status = 'pending'`
+        ).bind(Date.now(), me.id, req.id),
+
+        db.prepare(
+          `UPDATE users SET coins = coins + ?
+            WHERE id = ?
+              AND (SELECT status FROM topup_requests WHERE id = ?) = 'approved'
+              AND (SELECT credited FROM topup_requests WHERE id = ?) = 0`
+        ).bind(req.amount, req.user_id, req.id, req.id),
+
+        db.prepare('UPDATE topup_requests SET credited = 1 WHERE id = ?').bind(req.id),
+      ]);
+
+      const updated = await db.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(req.user_id).first();
+      await logAction(db, {
+        action: 'topup_approve', actor: me, target: updated,
+        amount: req.amount, detail: `balance ${updated.coins}`,
+      });
+      return json({ ok: true, status: 'approved', user: publicUser(updated) });
+    }
+
+    /* -- history and stats -- */
+
+    if (pathname === '/api/admin/audit' && method === 'GET') {
+      const action = url.searchParams.get('action');
+      const query = action
+        ? db.prepare('SELECT * FROM audit_log WHERE action = ? ORDER BY at DESC LIMIT 200')
+            .bind(action)
+        : db.prepare('SELECT * FROM audit_log ORDER BY at DESC LIMIT 200');
+
+      const { results = [] } = await query.all();
+      return json({
+        entries: results.map((row) => ({
+          id: row.id, at: row.at, action: row.action,
+          actorId: row.actor_id, actorName: row.actor_name,
+          targetId: row.target_id, targetName: row.target_name,
+          amount: row.amount, detail: row.detail,
+        })),
+      });
+    }
+
+    // Who has received the most coins — today and all time.
+    if (pathname === '/api/admin/topup-stats' && method === 'GET') {
+      const offset = Number(env.TZ_OFFSET_MINUTES ?? 480);
+      const CREDITED = "action IN ('topup_manual','topup_approve')";
+
+      const rank = async (since) => {
+        const { results = [] } = await db.prepare(
+          `SELECT target_id, target_name, SUM(amount) AS total, COUNT(*) AS times
+             FROM audit_log
+            WHERE ${CREDITED} AND amount > 0 AND at >= ?
+            GROUP BY target_id
+            ORDER BY total DESC LIMIT 20`
+        ).bind(since).all();
+        return results.map((row) => ({
+          userId: row.target_id,
+          username: row.target_name,
+          total: row.total,
+          times: row.times,
+        }));
+      };
+
+      return json({
+        today: await rank(windowStart('day', offset)),
+        allTime: await rank(0),
+      });
+    }
+
     if (pathname === '/api/admin/reload' && method === 'POST') {
       const { userId, amount } = await readJson(request);
       const target = await db.prepare('SELECT * FROM users WHERE id = ?')
@@ -449,6 +629,10 @@ async function handle(request, env) {
       await db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?')
         .bind(delta, target.id).run();
       const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(target.id).first();
+      await logAction(db, {
+        action: 'topup_manual', actor: me, target: updated, amount: delta,
+        detail: `${target.coins} -> ${updated.coins}`,
+      });
       return json({ user: publicUser(updated) });
     }
 
@@ -471,6 +655,7 @@ async function handle(request, env) {
         db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(target.id),
       ]);
 
+      await logAction(db, { action: 'clear_password', actor: me, target });
       return json({ user: { ...publicUser(target), mustReset: true } });
     }
   }

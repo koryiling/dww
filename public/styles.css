@@ -68,6 +68,16 @@ body {
   z-index: 2;
 }
 
+.corner-actions.left { left: 0.9rem; right: auto; }
+
+.admin-link {
+  background: linear-gradient(180deg, var(--green), var(--green-dark));
+  border-color: var(--green-dark);
+  color: #fff;
+}
+
+.admin-link:hover { filter: brightness(1.08); }
+
 .icon-btn {
   min-width: 38px;
   height: 38px;

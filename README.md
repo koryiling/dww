@@ -13,10 +13,14 @@ Game logic is ported from [`animal_wheel.ps1`](animal_wheel.ps1); the UI follows
 
 | | |
 |---|---|
-| `/` | the game |
-| `/admin.html` | superadmin hub |
-| `/topup.html` | add coins — ID → check the name → amount → confirm |
+| `/` | the game — superadmins get an **⚙ 管理后台** button, top-left |
+| `/admin.html` | hub: approval queue, top-up ranking, audit trail, players |
+| `/topup.html` | manual top-up — ID → check the name → amount → confirm |
 | `/reset.html` | clear a forgotten password — search by username or ID |
+
+Players who run dry press **申请充值 / Request top-up** in the game; the request
+lands in the admin queue for approval or rejection. One open request per
+player at a time.
 
 ## Deploy
 
@@ -59,22 +63,38 @@ auditing, unpredictable to clients. Settlement happens lazily on the next
 request, and is idempotent — the record id is `<round>-<user>`, so concurrent
 requests cannot double-pay.
 
-### ⚠️ The paytable loses money
+### Weights are derived, not hand-written
 
-Exact RTP with the weights above — every bet returns **over 100%**:
+Hand-picked weights are how the original ended up paying out 132% on 狮子. So
+`deriveWeights()` in [`src/wheel.js`](src/wheel.js) solves for them instead.
 
-| bet | RTP |
-|---|---|
-| 乌龟 / 刺猬 / 浣熊 / 小象 | 102.25% |
-| 猫咪 | 102.74% |
-| 狐狸 | 107.14% |
-| 猪猪 | 114.97% |
-| 狮子 | **132.09%** |
-| all 8 | 108.24% |
+An animal wins when its own spot lands **or** its plate lands:
 
-Cause: the plates add win chance without reducing payouts. 狮子 wins on
-`3.00/102.2` but pays as if it won on `2.20/102.2`. Adjust the weights in
-[`src/wheel.js`](src/wheel.js) to fix.
+```
+RTP_i = (w_i + P) / 100 × payout_i
+```
+
+Set that to the target R and rearrange, then require the wheel to sum to 100:
+
+```
+w_i      = 100R / payout_i − P
+Pv + Pm  = (Σ 100R/payout_i − 100) / (k − 1)      k = animals per plate
+```
+
+At `TARGET_RTP = 1.00` that gives **exactly 100% on every single bet** —
+verified algebraically and over 300,000 simulated draws:
+
+| | 乌龟 | 刺猬 | 浣熊 | 小象 | 猫咪 | 狐狸 | 猪猪 | 狮子 | 菜盘 | 肉盘 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| weight | 19.3720 | 19.3720 | 19.3720 | 19.3720 | 9.6651 | 6.3317 | 3.6651 | 1.8873 | 0.6280 | 0.3349 |
+| payout | 5× | 5× | 5× | 5× | 10× | 15× | 25× | 45× | — | — |
+| win % | 20.00 | 20.00 | 20.00 | 20.00 | 10.00 | 6.667 | 4.00 | 2.222 | — | — |
+| RTP | 100% | 100% | 100% | 100% | 100% | 100% | 100% | 100% | — | — |
+
+**Want a house edge?** Lower `TARGET_RTP`. But there's a floor: the plates hand
+out extra wins, so with these payouts the lowest reachable RTP is **97.19%**
+(the no-plate case). Below that the payouts themselves have to come down, and
+`deriveWeights()` throws rather than shipping a broken wheel.
 
 ## Accounts
 
@@ -117,10 +137,36 @@ schema.sql   D1 tables
 | `POST /api/bet` | `{ animalId, amount }` |
 | `GET /api/records` | every player's slips |
 | `GET /api/leaderboard?range=day\|week\|month` | net totals |
+| `GET` `POST /api/topup-request` | player asks for coins |
 | `GET /api/admin/lookup?userId=` | name for an ID, before topping up |
 | `GET /api/admin/search?q=` | find by username **or** ID |
+| `GET /api/admin/topups?status=` | the approval queue |
+| `POST /api/admin/topup-decide` | `{ id, action: approve\|reject }` |
+| `GET /api/admin/audit?action=` | every action, newest first |
+| `GET /api/admin/topup-stats` | who received the most — today and all time |
 | `POST /api/admin/reload` | `{ userId, amount }` — additive |
 | `POST /api/admin/clear-password` | `{ userId }` |
+
+## Audit trail
+
+`audit_log` is append-only and never updated or deleted. Every money movement
+and access change writes a row: **who did it, to whom, how much, when**.
+
+| action | logged when |
+|---|---|
+| `register` | an account is created |
+| `topup_request` | a player asks for coins |
+| `topup_approve` / `topup_reject` | the admin decides |
+| `topup_manual` | the admin credits directly |
+| `clear_password` | the admin clears a password |
+
+The ranking on `/admin.html` is derived from it — `SUM(amount)` over
+`topup_manual` + `topup_approve`, for today and all time.
+
+Paying out twice is prevented structurally rather than by checking first:
+approval flips `pending → approved` and credits **only while `credited = 0`**,
+all inside one D1 transaction. A double click, or two admins acting at once,
+credits exactly once.
 
 ## Two implementations
 
