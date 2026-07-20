@@ -317,6 +317,7 @@ function tickClock() {
 
   const phase = betting ? 'betting' : 'drawing';
   if (phase !== state.phase) {
+    const first = state.phase === null;
     state.phase = phase;
     if (phase === 'drawing') {
       startReel();
@@ -326,6 +327,11 @@ function tickClock() {
     renderPhaseText();
     renderChips();
     renderBoard();
+
+    // Poll on the transition rather than on a fast timer. The countdown is
+    // driven locally, so the only moments we actually need the server are
+    // when a round flips — which is also when the result lands.
+    if (!first) poll();
   }
 }
 
@@ -483,8 +489,11 @@ async function enterGame(user) {
   await loadLeaderboard();
 
   setInterval(tickClock, 200);
-  setInterval(poll, 3000);
-  setInterval(loadLeaderboard, 15000);
+  // Slow safety net — tickClock polls on every phase change, so this only
+  // catches drift and background tabs. Two round-trips per 65s round keeps
+  // a full table of players inside Cloudflare's free request allowance.
+  setInterval(poll, 30_000);
+  setInterval(loadLeaderboard, 60_000);
 }
 
 (async function boot() {

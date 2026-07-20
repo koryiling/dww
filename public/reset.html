@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>清除密码 Clear password — 大胃王</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="login-screen" class="app auth">
+  <header class="hero">
+    <h1>清除密码</h1>
+    <p class="subtitle">Clear password — Superadmin only</p>
+  </header>
+  <section class="card">
+    <form id="login-form" class="form" autocomplete="off">
+      <label class="field">
+        <span>用户名 Username</span>
+        <input id="admin-user" type="text" required>
+      </label>
+      <label class="field">
+        <span>密码 Password</span>
+        <input id="admin-pass" type="password" required>
+      </label>
+      <p id="login-error" class="error" hidden></p>
+      <button type="submit" class="wide-btn">登入 Login</button>
+    </form>
+  </section>
+</div>
+
+<div id="reset-screen" class="app" hidden>
+  <div class="corner-actions">
+    <a class="icon-btn wide" href="admin.html">← 管理 Admin</a>
+    <button class="icon-btn wide" id="logout">登出</button>
+  </div>
+
+  <header class="hero">
+    <h1>清除密码</h1>
+    <p class="subtitle">搜索用户 → 清除密码 → 用户自行重设</p>
+  </header>
+
+  <section class="card">
+    <h2 class="admin-h2"><span class="step-num">1</span> 搜索 / Search</h2>
+    <form id="search-form" class="form">
+      <label class="field">
+        <span>用户名或 ID / Username or ID</span>
+        <input id="query" type="text" placeholder="yueyue 或 12345" required>
+      </label>
+      <button type="submit" class="wide-btn">搜索 Search</button>
+    </form>
+  </section>
+
+  <section class="card" id="results-card" hidden>
+    <h2 class="admin-h2"><span class="step-num">2</span> 选择用户 / Pick the user</h2>
+    <ul id="results" class="panel-list"></ul>
+  </section>
+
+  <section class="card">
+    <p class="hint" style="text-align:left">
+      清除后该用户会被强制登出，并只能在游戏页的
+      <strong>「重设密码 / Reset password」</strong> 分页自行设置新密码。
+      管理员不会看到也不会决定新密码。<br><br>
+      After clearing, the user is signed out everywhere and can only set a new
+      password themselves on the <strong>Reset password</strong> tab. You never
+      see or choose it.
+    </p>
+  </section>
+
+  <p id="toast" class="toast" hidden></p>
+</div>
+
+<script src="reset.js" type="module"></script>
+</body>
+</html>
