@@ -255,9 +255,23 @@ export default function App() {
       })
       .catch(() => {});
   }
+  // Real ChatRoom people you can gift to (seated + online), not fake members.
+  const [members, setMembers] = useState([]);
+  function loadMembers() {
+    if (!authTok) return;
+    fetch("/api/room", { headers: { authorization: "Bearer " + authTok } })
+      .then((r) => r.json())
+      .then((d) => {
+        const seen = new Set(), list = [];
+        (d.seats || []).filter(Boolean).forEach((s) => { if (!seen.has(s.userId)) { seen.add(s.userId); list.push(s); } });
+        (d.online || []).forEach((o) => { if (!seen.has(o.userId)) { seen.add(o.userId); list.push(o); } });
+        setMembers(list);
+      })
+      .catch(() => {});
+  }
   useEffect(() => {
-    loadBag();
-    const onMsg = (e) => { if (e && e.data === "sync-bag") loadBag(); };
+    loadBag(); loadMembers();
+    const onMsg = (e) => { if (e && e.data === "sync-bag") { loadBag(); loadMembers(); } };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, []);
@@ -332,16 +346,24 @@ export default function App() {
     }, 1500);
   }
 
+  // Gift a bag item to a REAL ChatRoom user. Goes through the shared server
+  // bag: it removes the item and credits the receiver 70% as coins, and shows
+  // in the ChatRoom feed — fully synced.
   function gift(goldValue, member, qty) {
-    setBag((b) => { const n = { ...b }; n[goldValue] = (n[goldValue] || 0) - qty; if (n[goldValue] <= 0) delete n[goldValue]; return n; });
-    bagRemove(goldValue, qty);   // keep the shared server bag in sync
-    const totalVal = goldValue * qty;
-    const toUser = Math.round(totalVal * 0.7);
-    const cut = totalVal - toUser;
-    setReceived((r) => ({ ...r, [member.id]: (r[member.id] || 0) + toUser }));
-    setAppProfit((p) => p + cut);
+    if (!authTok || !member?.userId) return;
     const gname = lang === "zh" ? GIFTS[goldValue].zh : GIFTS[goldValue].en;
-    showFlash(t.sent(gname, qty, member.name, toUser));
+    const toUser = Math.round(goldValue * qty * 0.7);
+    fetch("/api/bag/give", {
+      method: "POST",
+      headers: { authorization: "Bearer " + authTok, "content-type": "application/json" },
+      body: JSON.stringify({ toUserId: member.userId, key: String(goldValue), qty }),
+    })
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.ok) { loadBag(); showFlash(t.sent(gname, qty, member.username, toUser)); }
+        else showFlash(res.error || "✗");
+      })
+      .catch(() => {});
   }
 
   // Wishing pool: pledge materials (from bag) toward a target; roll success.
@@ -453,7 +475,7 @@ export default function App() {
 
       {panel === "shop" && <ShopPanel gold={gold} t={t} onBuy={buy} onClose={() => setPanel(null)} />}
       {panel === "rules" && <RulesPanel lang={lang} t={t} onClose={() => setPanel(null)} />}
-      {panel === "bag" && <BagPanel bag={bag} bagValue={bagValue} received={received} appProfit={appProfit} lang={lang} t={t} onGift={gift} onClose={() => setPanel(null)} />}
+      {panel === "bag" && <BagPanel bag={bag} bagValue={bagValue} members={members} lang={lang} t={t} onGift={gift} onClose={() => setPanel(null)} />}
       {panel === "wish" && <WishPanel bag={bag} wishLog={wishLog} lang={lang} t={t} onWish={doWish} onClose={() => setPanel(null)} />}
     </div>
   );
@@ -560,7 +582,7 @@ function RulesPanel({ lang, t, onClose }) {
   );
 }
 
-function BagPanel({ bag, bagValue, received, appProfit, lang, t, onGift, onClose }) {
+function BagPanel({ bag, bagValue, members, lang, t, onGift, onClose }) {
   const [giving, setGiving] = useState(null); // gold value being gifted
   const [qty, setQty] = useState(1);
   const entries = Object.entries(bag).map(([g, c]) => ({ gold: Number(g), count: c })).sort((a, b) => b.gold - a.gold);
@@ -573,7 +595,6 @@ function BagPanel({ bag, bagValue, received, appProfit, lang, t, onGift, onClose
         <>
           <div style={{ display: "flex", justifyContent: "center", gap: 16, fontSize: 12.5, opacity: 0.85, marginBottom: 12 }}>
             <span>{t.bagValue}　🪙 {fmt(bagValue)}</span>
-            <span style={{ color: "#ffd84d" }}>{t.appProfit}　🪙 {fmt(appProfit)}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
             {entries.map(({ gold, count }) => (
@@ -621,13 +642,16 @@ function BagPanel({ bag, bagValue, received, appProfit, lang, t, onGift, onClose
                 <div style={splitRow("rgba(255,216,77,.12)")}><span style={{ color: "#ffd84d" }}>{t.appCut}</span><span style={{ fontWeight: 800, color: "#ffd84d" }}>🪙 {fmt(cut)}</span></div>
               </div>
 
-              {MEMBERS.map((mb) => (
-                <button key={mb.id} className="btn" onClick={() => { onGift(giving, mb, q); setGiving(null); }}
+              {members.length === 0 && (
+                <div style={{ textAlign: "center", opacity: 0.6, padding: "16px 0" }}>—</div>
+              )}
+              {members.map((mb) => (
+                <button key={mb.userId} className="btn" onClick={() => { onGift(giving, mb, q); setGiving(null); }}
                   style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", marginBottom: 7, borderRadius: 12, border: "1px solid rgba(255,255,255,.18)", background: "rgba(255,255,255,.07)", color: "#fff", cursor: "pointer" }}>
                   <span style={{ fontSize: 22, width: 34, height: 34, display: "grid", placeItems: "center", background: "rgba(255,255,255,.1)", borderRadius: "50%" }}>{mb.avatar}</span>
                   <div style={{ textAlign: "left" }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{mb.name}</div>
-                    <div style={{ fontSize: 11, opacity: 0.6 }}>{lang === "zh" ? mb.seat_zh : mb.seat_en} · {t.received} 🪙 {fmt(received[mb.id] || 0)}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{mb.username}</div>
+                    <div style={{ fontSize: 11, opacity: 0.6 }}>ID {mb.userId}</div>
                   </div>
                   <span style={{ marginLeft: "auto", fontSize: 18 }}>🎁</span>
                 </button>
