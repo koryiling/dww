@@ -617,6 +617,24 @@ body {
 .admin-app .card { padding: clamp(0.7rem, 3vw, 0.9rem); }
 .admin-app .admin-h2 { font-size: clamp(0.9rem, 3.5vw, 1rem); }
 
+/* Keep everything inside the rectangle. A grid/flex child defaults to
+   min-width:auto, so a wide table (nowrap) would push its card — and the
+   whole console — past the container instead of scrolling. Forcing
+   min-width:0 down the chain makes the table scroll inside its own box. */
+.admin-app,
+.admin-app .cat-panel,
+.admin-app .two-pane,
+.admin-app .card,
+.admin-app .table-wrap,
+.admin-app .cat-panel > *,
+.admin-app .two-pane > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-app .table-wrap { overflow-x: auto; }
+.admin-app .admin-table { width: max-content; min-width: 100%; }
+
 /* auto-fit flows the 4–5 categories without leaving an orphan on its own
    row the way a fixed column count does. */
 .cat-nav {
