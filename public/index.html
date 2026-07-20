@@ -230,8 +230,7 @@
       <span class="person-name" id="person-name">—</span>
     </div>
     <button class="wide-btn" id="person-profile" data-i18n="viewProfile">查看资料</button>
-    <button class="wide-btn subtle" id="person-gift" data-i18n="directGift">直送礼物</button>
-    <button class="wide-btn subtle" id="person-box" data-i18n="boxGift">礼盒</button>
+    <button class="wide-btn subtle" id="person-gift" data-i18n="giveGiftBtn">送礼物</button>
     <button class="wide-btn subtle" id="person-cancel" data-i18n="cancel">取消</button>
   </div>
 </div>
@@ -249,10 +248,17 @@
     </div>
     <div id="gift-recipients" class="gift-recipients"></div>
     <div class="lb-tabs" id="gift-source">
-      <button class="lb-tab active" data-src="coin" data-i18n="coinGift">金币礼物</button>
+      <button class="lb-tab active" data-src="coin" data-i18n="directGift">直送礼物</button>
+      <button class="lb-tab" data-src="box" data-i18n="boxGift">礼盒</button>
       <button class="lb-tab" data-src="bag" data-i18n="bagGift">背包</button>
     </div>
     <div id="gift-grid" class="gift-grid"></div>
+    <div class="qty-row">
+      <span data-i18n="quantity">数量</span>
+      <button type="button" class="qty-btn" id="qty-minus">−</button>
+      <input id="gift-qty" class="qty-input" type="number" min="1" value="1" inputmode="numeric">
+      <button type="button" class="qty-btn" id="qty-plus">＋</button>
+    </div>
   </div>
 </div>
 

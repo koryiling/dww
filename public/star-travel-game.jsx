@@ -277,6 +277,14 @@ export default function App() {
             body: JSON.stringify({ key: String(g), emoji: GIFTS[g].emoji, name: GIFTS[g].zh, value: Number(g), qty }),
           }).catch(() => {});
         });
+        // Announce big wins (5000+) to everyone, everywhere.
+        items.filter((g) => Number(g) >= 5000).forEach((g) => {
+          fetch("/api/star/announce", {
+            method: "POST",
+            headers: { authorization: "Bearer " + authTok, "content-type": "application/json" },
+            body: JSON.stringify({ emoji: GIFTS[g].emoji, name: GIFTS[g].zh, value: Number(g) }),
+          }).catch(() => {});
+        });
       }
       setResults({ items, mode });
       const big = items.filter((g) => tierOf(g) !== "normal");

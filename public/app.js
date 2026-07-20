@@ -37,6 +37,7 @@ const els = {
   personName: $('person-name'), personProfile: $('person-profile'),
   personGift: $('person-gift'), personBox: $('person-box'), personCancel: $('person-cancel'),
   giftSource: $('gift-source'), giftAll: $('gift-all'),
+  giftQty: $('gift-qty'), qtyMinus: $('qty-minus'), qtyPlus: $('qty-plus'),
 
   seats: $('seats'), seatCount: $('seat-count'),
   chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
@@ -628,14 +629,24 @@ async function leaveSeat() {
   } catch (error) { toast(tError(error)); }
 }
 
-// Format a big-gift broadcast into celebratory words.
+// Format a broadcast (gift or star win) into celebratory words with the amount.
 function bcastText(raw) {
   try {
     const g = JSON.parse(raw);
+    if (g.type === 'star') {
+      return t('starWinMsg')
+        .replace('{winner}', g.winner).replace('{emoji}', g.emoji)
+        .replace('{name}', g.name ?? '').replace('{amount}', num.format(g.value));
+    }
     return t('bcastMsg')
       .replace('{from}', g.from).replace('{to}', g.to)
-      .replace('{emoji}', g.emoji).replace('{name}', g.name ?? '');
+      .replace('{emoji}', g.emoji).replace('{name}', g.name ?? '')
+      .replace('{amount}', num.format(g.cost));
   } catch { return raw; }
+}
+
+function bcastTier(raw) {
+  try { return JSON.parse(raw).tier ?? 'none'; } catch { return 'none'; }
 }
 
 // A normal gift line for the Gift feed.
@@ -657,7 +668,7 @@ function renderChat(messages) {
   const bcasts = messages.filter((m) => m.kind === 'bcast');
   const newest = bcasts[bcasts.length - 1];
   if (newest && newest.id > state.lastBcastId) {
-    if (state.lastBcastId !== 0) showAnnouncement(bcastText(newest.text));
+    if (state.lastBcastId !== 0) showAnnouncement(bcastText(newest.text), bcastTier(newest.text));
     state.lastBcastId = newest.id;
   }
 
@@ -688,7 +699,7 @@ function renderChatFiltered() {
   els.chatList.replaceChildren(...list.map((m) => {
     const li = document.createElement('li');
     if (m.kind === 'bcast') {
-      li.className = 'chat-bcast';
+      li.className = `chat-bcast frame-${bcastTier(m.text)}`;
       li.textContent = bcastText(m.text);
       return li;
     }
@@ -735,8 +746,9 @@ els.chatCats.addEventListener('click', (event) => {
 });
 
 let announceTimer;
-function showAnnouncement(text) {
+function showAnnouncement(text, tier = 'none') {
   els.announce.textContent = text;
+  els.announce.className = `announce frame-${tier}`;
   els.announce.hidden = false;
   els.announce.classList.remove('show');
   void els.announce.offsetWidth;   // restart the animation
@@ -793,6 +805,10 @@ els.giftSource.addEventListener('click', async (event) => {
   renderGiftGrid();
 });
 
+const giftQty = () => Math.max(1, Math.floor(Number(els.giftQty.value) || 1));
+els.qtyMinus.addEventListener('click', () => { els.giftQty.value = Math.max(1, giftQty() - 1); });
+els.qtyPlus.addEventListener('click', () => { els.giftQty.value = giftQty() + 1; });
+
 function renderRecipients() {
   if (!state.seatList.length) {
     els.giftRecipients.innerHTML = `<p class="hint" style="margin:0">${t('noMessages')}</p>`;
@@ -815,6 +831,10 @@ function renderRecipients() {
 }
 
 function renderGiftGrid() {
+  if (state.giftSrc === 'box') {
+    els.giftGrid.innerHTML = `<p class="hint" style="grid-column:1/-1;margin:0">${t('boxSoonGrid')}</p>`;
+    return;
+  }
   if (state.giftSrc === 'bag') {
     const items = state.bag ?? [];
     if (!items.length) {
@@ -846,20 +866,24 @@ function renderGiftGrid() {
   }));
 }
 
-// Coin gift to every selected recipient. Stops early if you run dry.
+// Coin gift: `qty` of this gift to every selected recipient.
 async function sendGift(gift) {
   const targets = [...state.giftTargets];
   if (!targets.length) return toast(t('pickRecipients'));
+  const qty = giftQty();
 
   let sent = 0;
+  outer:
   for (const toUserId of targets) {
-    try {
-      const { user } = await api('/api/gifts/send', { method: 'POST', body: { toUserId, giftId: gift.id } });
-      state.me = user;
-      sent += 1;
-    } catch (error) {
-      toast(tError(error));
-      break;
+    for (let i = 0; i < qty; i++) {
+      try {
+        const { user } = await api('/api/gifts/send', { method: 'POST', body: { toUserId, giftId: gift.id } });
+        state.me = user;
+        sent += 1;
+      } catch (error) {
+        toast(tError(error));
+        break outer;
+      }
     }
   }
   if (sent) {
@@ -870,16 +894,17 @@ async function sendGift(gift) {
   }
 }
 
-// Bag gift (a Star Travel winning) to every selected recipient.
+// Bag gift (a Star Travel winning): `qty` to every selected recipient.
 async function sendBagItem(item) {
   const targets = [...state.giftTargets];
   if (!targets.length) return toast(t('pickRecipients'));
-  if (item.count < targets.length) return toast(t('bagEmpty'));
+  const qty = giftQty();
+  if (item.count < qty * targets.length) return toast(t('bagEmpty'));
 
   let sent = 0;
   for (const toUserId of targets) {
     try {
-      await api('/api/bag/give', { method: 'POST', body: { toUserId, key: item.key, qty: 1 } });
+      await api('/api/bag/give', { method: 'POST', body: { toUserId, key: item.key, qty } });
       sent += 1;
     } catch (error) {
       toast(tError(error));

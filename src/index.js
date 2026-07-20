@@ -59,7 +59,16 @@ const GIFTS = [
   { id: 'castle',   emoji: '🏰', name: '城堡',     cost: 520000 },
 ];
 const giftById = new Map(GIFTS.map((g) => [g.id, g]));
-const BIG_GIFT = 10_000;   // 1万+ triggers a room-wide announcement
+
+// Room-wide announcements by value: 5000+ announces (no frame), 6660–18800
+// gets a silver frame, above 18800 a golden frame. Below 5000: no announce.
+const ANNOUNCE_MIN = 5_000;
+function frameTier(value) {
+  if (value > 18_800) return 'gold';
+  if (value >= 6_660) return 'silver';
+  if (value >= ANNOUNCE_MIN) return 'none';
+  return null;
+}
 
 const publicUser = (row) => ({
   id: row.id,
@@ -577,7 +586,8 @@ async function handle(request, env) {
     const totalValue = item.value * n;
     const received = Math.floor(totalValue * RECEIVER_SHARE);
     const now = Date.now();
-    const kind = totalValue >= BIG_GIFT ? 'bcast' : 'gift';
+    const tier = frameTier(totalValue);
+    const kind = tier ? 'bcast' : 'gift';
 
     await db.batch([
       db.prepare('UPDATE inventory SET count = count - ? WHERE user_id = ? AND item_key = ?').bind(n, me.id, k),
@@ -589,10 +599,27 @@ async function handle(request, env) {
       db.prepare(
         `INSERT INTO chat (user_id, username, color, avatar, text, kind, at) VALUES (?, ?, ?, ?, ?, ?, ?)`
       ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
-        JSON.stringify({ from: me.username, to: target.username, emoji: item.emoji, name: item.name, cost: totalValue }),
+        JSON.stringify({ from: me.username, to: target.username, emoji: item.emoji, name: item.name, cost: totalValue, tier }),
         kind, now),
     ]);
 
+    return json({ ok: true });
+  }
+
+  // Star Travel announces a big win (5000+) to everyone, framed by value.
+  if (pathname === '/api/star/announce' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { emoji, name, value } = await readJson(request);
+    const v = Math.trunc(Number(value));
+    const tier = frameTier(v);
+    if (!tier || !emoji) return json({ ok: false });   // below the threshold
+
+    await db.prepare(
+      `INSERT INTO chat (user_id, username, color, avatar, text, kind, at)
+       VALUES (?, ?, ?, ?, ?, 'bcast', ?)`
+    ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
+      JSON.stringify({ type: 'star', winner: me.username, emoji: String(emoji), name: String(name ?? ''), value: v, tier }),
+      Date.now()).run();
     return json({ ok: true });
   }
 
@@ -645,15 +672,15 @@ async function handle(request, env) {
       ).bind(me.id, me.username, target.id, target.username, gift.id, gift.emoji, gift.cost, received, now),
     ];
 
-    // Every gift posts to the feed. 'gift' = a normal line in the Gift tab;
-    // 'bcast' (1万+) also triggers the room-wide banner. The components are
-    // stored so the client can format and translate the line itself.
-    const kind = gift.cost >= BIG_GIFT ? 'bcast' : 'gift';
+    // Every gift posts to the feed. 'gift' = a normal Gift-tab line; 'bcast'
+    // (5000+) also triggers the room-wide banner, framed by value tier.
+    const tier = frameTier(gift.cost);
+    const kind = tier ? 'bcast' : 'gift';
     ops.push(db.prepare(
       `INSERT INTO chat (user_id, username, color, avatar, text, kind, at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
-      JSON.stringify({ from: me.username, to: target.username, emoji: gift.emoji, name: gift.name, cost: gift.cost }),
+      JSON.stringify({ from: me.username, to: target.username, emoji: gift.emoji, name: gift.name, cost: gift.cost, tier }),
       kind, now));
 
     await db.batch(ops);
