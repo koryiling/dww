@@ -605,14 +605,16 @@ body {
 
 /* ---- Admin categories ---- */
 
+/* auto-fit flows the 4–5 categories without leaving an orphan on its own
+   row the way a fixed column count does. */
 .cat-nav {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 0.4rem;
 }
 
-@media (min-width: 640px) {
-  .cat-nav { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 360px) {
+  .cat-nav { grid-template-columns: 1fr 1fr; }
 }
 
 .cat-btn {
@@ -621,16 +623,19 @@ body {
   justify-content: center;
   gap: 0.35rem;
   padding: 0.7rem 0.5rem;
+  min-width: 0;
   border: 2px solid var(--line);
   border-radius: 14px;
   background: var(--card);
   color: var(--ink);
   font: inherit;
   font-weight: 700;
-  font-size: clamp(0.8rem, 3vw, 0.95rem);
+  font-size: clamp(0.78rem, 2.9vw, 0.95rem);
   cursor: pointer;
   box-shadow: var(--shadow);
 }
+
+.cat-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .cat-btn.active {
   background: linear-gradient(180deg, var(--green), var(--green-dark));
@@ -705,6 +710,9 @@ body {
 }
 
 .mini-input {
+  flex: 1 1 120px;
+  min-width: 0;
+  max-width: 220px;
   padding: 0.35rem 0.6rem;
   border: 2px solid var(--line);
   border-radius: 999px;
@@ -712,7 +720,6 @@ body {
   color: var(--ink);
   font: inherit;
   font-size: 0.85rem;
-  max-width: 45%;
 }
 
 .lb-tab.danger {
@@ -723,7 +730,12 @@ body {
 
 .lb-tab.danger:hover { background: var(--red); color: #fff; }
 
+/* Four modes; 2×2 on small phones so the labels aren't clipped. */
 .mode-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; }
+
+@media (max-width: 420px) {
+  .mode-row { grid-template-columns: 1fr 1fr; }
+}
 
 .mode-btn {
   padding: 0.5rem 0.3rem;
@@ -741,6 +753,10 @@ body {
 .mode-btn.danger.active { background: linear-gradient(180deg, #e0603c, var(--red)); border-color: var(--red); }
 
 .perm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+
+@media (max-width: 340px) {
+  .perm-grid { grid-template-columns: 1fr; }
+}
 
 .perm-chk {
   display: flex;
