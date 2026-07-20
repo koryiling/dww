@@ -65,7 +65,8 @@
     </div>
 
     <div class="topbar-right">
-      <!-- Current coins, to the left of the profile chip. -->
+      <!-- Refresh sits left of the coins — quick to reach. -->
+      <button class="icon-btn" id="refresh" data-i18n-title="refresh" aria-label="refresh">⟳</button>
       <span class="coins-chip"><span class="coins-ic">🪙</span><span id="coins-top">0</span></span>
       <!-- Identity: who you are + ID; tap opens the profile page. -->
       <button class="identity" id="identity" type="button">
@@ -82,11 +83,6 @@
     <button class="game-tab active" data-view="dww">🐾 <span data-i18n="tabDww">大胃王</span></button>
     <button class="game-tab" data-view="soon">🚀 <span data-i18n="tabStar">星际旅行</span></button>
   </div>
-
-  <header class="hero">
-    <h1>大胃王 <span class="replica">(replica)</span></h1>
-    <p class="subtitle" data-i18n="subtitle">– 多人同步 –</p>
-  </header>
 
   <!-- ======================= ChatRoom view ======================= -->
   <section id="view-chatroom" class="game-view" hidden>
@@ -118,10 +114,23 @@
     </section>
   </section>
 
-  <!-- ======================= Star Travel (was Coming Soon) ======================= -->
-  <section id="view-soon" class="game-view" hidden>
+  <!-- ======================= Star Travel ======================= -->
+  <section id="view-soon" class="game-view star-layout" hidden>
     <iframe id="star-frame" class="star-frame" title="Star Travel"
             loading="lazy" allowtransparency="true"></iframe>
+
+    <aside class="star-side">
+      <section class="card">
+        <h2 class="admin-h2">🏆 <span data-i18n="starBigWins">大奖记录</span>
+          <span class="panel-tag" id="star-global-total">0</span></h2>
+        <ul id="star-global" class="star-hist"></ul>
+      </section>
+      <section class="card">
+        <h2 class="admin-h2">📜 <span data-i18n="myPlays">我的记录</span>
+          <span class="panel-tag" id="star-mine-total">0</span></h2>
+        <ul id="star-mine" class="star-hist"></ul>
+      </section>
+    </aside>
   </section>
 
   <!-- ======================= DWW game view ======================= -->
@@ -219,6 +228,17 @@
              placeholder="说点什么…" autocomplete="off">
       <button type="submit" class="chat-send" data-i18n="send">发送</button>
     </form>
+  </div>
+</div>
+
+<!-- ===================== Pull-into-seat picker (seat admins) ===================== -->
+<div id="pull-panel" class="panel" hidden>
+  <div class="panel-inner">
+    <div class="gift-head">
+      <h2 data-i18n="pullSomeone">拉人入座</h2>
+      <button id="pull-close" class="gift-x" aria-label="close">✕</button>
+    </div>
+    <div id="pull-list" class="gift-recipients"></div>
   </div>
 </div>
 

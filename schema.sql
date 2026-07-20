@@ -129,6 +129,22 @@ CREATE INDEX IF NOT EXISTS idx_gifts_at ON gifts(at DESC);
 CREATE INDEX IF NOT EXISTS idx_gifts_from ON gifts(from_id);
 CREATE INDEX IF NOT EXISTS idx_gifts_to ON gifts(to_id);
 
+-- Star Travel win log — drives the history panels.
+CREATE TABLE IF NOT EXISTS star_wins (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id  TEXT NOT NULL,
+  username TEXT NOT NULL,
+  emoji    TEXT NOT NULL,
+  name     TEXT,
+  value    INTEGER NOT NULL,
+  qty      INTEGER NOT NULL,
+  at       INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_star_at ON star_wins(at DESC);
+CREATE INDEX IF NOT EXISTS idx_star_user ON star_wins(user_id, at DESC);
+CREATE INDEX IF NOT EXISTS idx_star_value ON star_wins(value, at DESC);
+
 -- Bag: gifts a player won in Star Travel, giftable in the ChatRoom.
 CREATE TABLE IF NOT EXISTS inventory (
   user_id  TEXT NOT NULL,

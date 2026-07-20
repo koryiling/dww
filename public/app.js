@@ -29,13 +29,16 @@ const els = {
   requestStatus: $('request-status'),
 
   sidebar: $('sidebar'), sideToggle: $('side-toggle'),
-  identity: $('identity'), coinsTop: $('coins-top'),
+  identity: $('identity'), coinsTop: $('coins-top'), refresh: $('refresh'),
   playerNameTop: $('player-name-top'), playerIdTop: $('player-id-top'),
   playerDotTop: $('player-dot-top'),
   onlineList: $('online-list'), onlineCount: $('online-count'),
+  starGlobal: $('star-global'), starMine: $('star-mine'),
+  starGlobalTotal: $('star-global-total'), starMineTotal: $('star-mine-total'),
+  pullPanel: $('pull-panel'), pullList: $('pull-list'), pullClose: $('pull-close'),
   personPanel: $('person-panel'), personAvatar: $('person-avatar'),
   personName: $('person-name'), personProfile: $('person-profile'),
-  personGift: $('person-gift'), personBox: $('person-box'), personCancel: $('person-cancel'),
+  personGift: $('person-gift'), personCancel: $('person-cancel'),
   giftSource: $('gift-source'), giftAll: $('gift-all'),
   giftQty: $('gift-qty'), qtyMinus: $('qty-minus'), qtyPlus: $('qty-plus'),
 
@@ -201,6 +204,12 @@ els.sideToggle.addEventListener('click', togglePanel);
 // The identity chip opens the profile page (like a normal app).
 els.identity.addEventListener('click', () => { location.href = 'profile.html'; });
 
+els.refresh.addEventListener('click', async () => {
+  els.refresh.classList.add('spinning');
+  await Promise.all([poll(), loadRoundTop(), loadLeaderboard(), loadRequestStatus(), loadRoom(), loadStarHistory()]);
+  setTimeout(() => els.refresh.classList.remove('spinning'), 400);
+});
+
 // Top-level view switcher: ChatRoom / DWW / Coming Soon.
 $('view-tabs').addEventListener('click', (event) => {
   const tab = event.target.closest('.game-tab');
@@ -216,8 +225,36 @@ $('view-tabs').addEventListener('click', (event) => {
   if (view === 'soon') {
     const frame = $('star-frame');
     if (!frame.src) frame.src = 'star.html';
+    loadStarHistory();
   }
 });
+
+/* ---- Star Travel history ---- */
+
+function starRow(r, showName) {
+  const li = document.createElement('li');
+  li.className = 'star-hist-row';
+  const who = showName ? `<span class="star-who"></span>` : '';
+  li.innerHTML = `<span class="star-emoji">${r.emoji}</span>${who}
+    <span class="star-val">🪙 ${num.format(r.value)}${r.qty > 1 ? ` ×${r.qty}` : ''}</span>
+    <span class="star-time">${new Date(r.at).toLocaleTimeString()}</span>`;
+  if (showName) li.querySelector('.star-who').textContent = r.username;
+  return li;
+}
+
+async function loadStarHistory() {
+  try {
+    const { global, mine, globalTotal, mineTotal } = await api('/api/star/history');
+    els.starGlobalTotal.textContent = globalTotal;
+    els.starMineTotal.textContent = mineTotal;
+    els.starGlobal.replaceChildren(...(global.length
+      ? global.map((r) => starRow(r, true))
+      : [Object.assign(document.createElement('li'), { className: 'star-empty', textContent: t('starEmpty') })]));
+    els.starMine.replaceChildren(...(mine.length
+      ? mine.map((r) => starRow(r, false))
+      : [Object.assign(document.createElement('li'), { className: 'star-empty', textContent: t('starEmpty') })]));
+  } catch { /* non-critical */ }
+}
 
 /* ---- Profile (top identity bar only; full profile lives on profile.html) ---- */
 
@@ -538,6 +575,7 @@ async function loadRoom() {
 }
 
 function renderOnline(people) {
+  state.online = people;
   els.onlineCount.textContent = people.length;
   if (!people.length) {
     els.onlineList.innerHTML = `<p class="hint" style="margin:0">—</p>`;
@@ -567,17 +605,61 @@ function openPersonMenu(person) {
     if (person.userId === state.me?.id) return toast(t('pickRecipients'));
     openGiftModal(person);
   };
-  // Gift box — the mechanic is coming later.
-  els.personBox.onclick = () => toast(t('boxSoon'));
+  const canAdmins = () => !!state.me && (state.me.isSuper || (state.me.perms ?? []).includes('admins'));
+
+  // Promote to chatroom admin (seats permission) — for super / admins-admins.
+  let chatAdminBtn = document.getElementById('person-chatadmin');
+  if (canAdmins() && person.userId !== state.me?.id) {
+    if (!chatAdminBtn) {
+      chatAdminBtn = document.createElement('button');
+      chatAdminBtn.id = 'person-chatadmin';
+      chatAdminBtn.className = 'wide-btn subtle';
+      els.personGift.after(chatAdminBtn);
+    }
+    chatAdminBtn.textContent = t('setChatAdmin');
+    chatAdminBtn.hidden = false;
+    chatAdminBtn.onclick = async () => {
+      els.personPanel.hidden = true;
+      try {
+        const { on } = await api('/api/admin/make-chat-admin', { method: 'POST', body: { userId: person.userId } });
+        toast(on ? t('chatAdminSet') : t('chatAdminUnset'));
+      } catch (error) { toast(tError(error)); }
+    };
+  } else if (chatAdminBtn) {
+    chatAdminBtn.hidden = true;
+  }
+
+  // Seat-admins get a "seat them" action for anyone not already seated.
+  let seatBtn = document.getElementById('person-seat');
+  const isSeated = state.seatList.some((o) => o.userId === person.userId) || state.mySeat != null && person.userId === state.me?.id;
+  if (canSeats() && !isSeated) {
+    if (!seatBtn) {
+      seatBtn = document.createElement('button');
+      seatBtn.id = 'person-seat';
+      seatBtn.className = 'wide-btn subtle';
+      els.personGift.after(seatBtn);
+    }
+    seatBtn.textContent = t('seatThem');
+    seatBtn.hidden = false;
+    seatBtn.onclick = () => { els.personPanel.hidden = true; seatPerson(person); };
+  } else if (seatBtn) {
+    seatBtn.hidden = true;
+  }
   els.personPanel.hidden = false;
 }
 
 els.personCancel.addEventListener('click', () => { els.personPanel.hidden = true; });
 els.personPanel.addEventListener('click', (e) => { if (e.target === els.personPanel) els.personPanel.hidden = true; });
+els.pullClose.addEventListener('click', () => { els.pullPanel.hidden = true; });
+els.pullPanel.addEventListener('click', (e) => { if (e.target === els.pullPanel) els.pullPanel.hidden = true; });
+
+const canSeats = () => !!state.me && (state.me.isSuper || (state.me.perms ?? []).includes('seats'));
 
 function renderSeats(seats, mySeat) {
   // Remember who's seated (minus me) for the gift recipient picker.
   state.seatList = seats.filter(Boolean).filter((o) => o.userId !== state.me?.id);
+  // First free seat index (1-based) for seat-admins to assign into.
+  state.freeSeat = seats.findIndex((o) => !o) + 1 || 0;
   const taken = seats.filter(Boolean).length;
   els.seatCount.textContent = `${taken}/9`;
 
@@ -602,17 +684,48 @@ function renderSeats(seats, mySeat) {
         // Tap someone's seat → View Profile / Send Gift.
         seat.classList.add('giftable');
         seat.addEventListener('click', () => openPersonMenu(occ));
+        // Seat-admins can kick anyone off their seat.
+        if (canSeats()) {
+          const kick = document.createElement('button');
+          kick.className = 'seat-kick';
+          kick.textContent = '✖';
+          kick.title = t('kick');
+          kick.addEventListener('click', (e) => { e.stopPropagation(); kickSeat(n); });
+          seat.append(kick);
+        }
       }
     } else {
       seat.innerHTML = `<span class="seat-num">${n}</span>`;
       const sit = document.createElement('button');
       sit.className = 'seat-btn';
       sit.textContent = t('sit');
-      sit.addEventListener('click', () => sitSeat(n));
+      sit.addEventListener('click', (e) => { e.stopPropagation(); sitSeat(n); });
       seat.append(sit);
+      // Seat-admins tap the empty seat to pull someone in.
+      if (canSeats()) {
+        seat.classList.add('giftable');
+        seat.addEventListener('click', () => openPull(n));
+      }
     }
     return seat;
   }));
+}
+
+// Pull picker: online players not already seated, into seat n.
+function openPull(seatN) {
+  const seatedIds = new Set(state.seatList.map((o) => o.userId).concat(state.mySeat ? [state.me?.id] : []));
+  const candidates = (state.online ?? []).filter((p) => !seatedIds.has(p.userId));
+  els.pullList.replaceChildren(...(candidates.length ? candidates.map((p) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'recipient';
+    b.innerHTML = `<span class="recipient-dot" style="border-color:${p.color}">${p.avatar}</span>
+      <span class="recipient-name"></span>`;
+    b.querySelector('.recipient-name').textContent = p.username;
+    b.addEventListener('click', () => { els.pullPanel.hidden = true; seatPerson(p, seatN); });
+    return b;
+  }) : [Object.assign(document.createElement('p'), { className: 'hint', textContent: '—' })]));
+  els.pullPanel.hidden = false;
 }
 
 async function sitSeat(n) {
@@ -625,6 +738,22 @@ async function sitSeat(n) {
 async function leaveSeat() {
   try {
     await api('/api/room/leave', { method: 'POST' });
+    await loadRoom();
+  } catch (error) { toast(tError(error)); }
+}
+
+async function kickSeat(n) {
+  try {
+    await api('/api/admin/seat-kick', { method: 'POST', body: { seat: n } });
+    await loadRoom();
+  } catch (error) { toast(tError(error)); }
+}
+
+async function seatPerson(person, seatN) {
+  const seat = seatN ?? state.freeSeat;
+  if (!seat) return toast(t('noFreeSeat'));
+  try {
+    await api('/api/admin/seat-assign', { method: 'POST', body: { userId: person.userId, seat } });
     await loadRoom();
   } catch (error) { toast(tError(error)); }
 }
@@ -1103,6 +1232,8 @@ async function enterGame(user) {
   setInterval(loadLeaderboard, 60_000);
   setInterval(loadRequestStatus, 30_000);
   setInterval(loadRoom, 5_000);   // seats + chat update near real-time
+  // Refresh star history while its tab is open.
+  setInterval(() => { if (!$('view-soon').hidden) loadStarHistory(); }, 8_000);
 }
 
 (async function boot() {

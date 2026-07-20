@@ -27,7 +27,7 @@ const json = (body, status = 200) =>
 
 const fail = (status, code, error) => json({ error, code }, status);
 
-const ALL_PERMS = ['appeals', 'manual', 'password', 'users', 'admins'];
+const ALL_PERMS = ['appeals', 'manual', 'password', 'users', 'admins', 'seats'];
 
 const permsOf = (row) =>
   row.is_super ? ALL_PERMS : (row.perms ? row.perms.split(',').filter(Boolean) : []);
@@ -558,12 +558,44 @@ async function handle(request, env) {
     if (!k || !emoji || !Number.isFinite(v) || v < 0 || !Number.isInteger(n) || n <= 0) {
       return fail(400, 'bad_item', '无效的物品');
     }
-    await db.prepare(
-      `INSERT INTO inventory (user_id, item_key, emoji, name, value, count)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT (user_id, item_key) DO UPDATE SET count = count + excluded.count`
-    ).bind(me.id, k, String(emoji), String(name ?? ''), v, n).run();
+    await db.batch([
+      db.prepare(
+        `INSERT INTO inventory (user_id, item_key, emoji, name, value, count)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_id, item_key) DO UPDATE SET count = count + excluded.count`
+      ).bind(me.id, k, String(emoji), String(name ?? ''), v, n),
+      db.prepare(
+        'INSERT INTO star_wins (user_id, username, emoji, name, value, qty, at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(me.id, me.username, String(emoji), String(name ?? ''), v, n, Date.now()),
+    ]);
     return json({ ok: true });
+  }
+
+  // Star history: the global 5000+ feed and the player's own plays, newest
+  // first, plus totals.
+  if (pathname === '/api/star/history' && method === 'GET') {
+    // Newest 15 big wins only.
+    const big = await db.prepare(
+      'SELECT username, emoji, name, value, qty, at FROM star_wins WHERE value >= 5000 ORDER BY at DESC LIMIT 15'
+    ).all();
+    const mineRows = me ? await db.prepare(
+      'SELECT emoji, name, value, qty, at FROM star_wins WHERE user_id = ? ORDER BY at DESC LIMIT 50'
+    ).bind(me.id).all() : { results: [] };
+    const bigTotal = await db.prepare('SELECT COUNT(*) AS n FROM star_wins WHERE value >= 5000').first();
+    const mineTotal = me ? await db.prepare(
+      'SELECT COALESCE(SUM(qty),0) AS n FROM star_wins WHERE user_id = ?'
+    ).bind(me.id).first() : { n: 0 };
+
+    return json({
+      global: (big.results ?? []).map((r) => ({
+        username: r.username, emoji: r.emoji, name: r.name, value: r.value, qty: r.qty, at: r.at,
+      })),
+      mine: (mineRows.results ?? []).map((r) => ({
+        emoji: r.emoji, name: r.name, value: r.value, qty: r.qty, at: r.at,
+      })),
+      globalTotal: bigTotal?.n ?? 0,
+      mineTotal: mineTotal?.n ?? 0,
+    });
   }
 
   // Give a bag item to another player. The receiver keeps 70% of its value as
@@ -941,6 +973,9 @@ async function handle(request, env) {
       '/api/admin/delete-user': 'password',
       '/api/admin/grant': 'admins',
       '/api/admin/revoke': 'admins',
+      '/api/admin/seat-kick': 'seats',
+      '/api/admin/seat-assign': 'seats',
+      '/api/admin/make-chat-admin': 'admins',
     };
     const needed = ROUTE_PERM[pathname];
     if (needed && !hasPerm(me, needed)) {
@@ -969,6 +1004,54 @@ async function handle(request, env) {
         detail: clean.join(',') || 'none',
       });
       return json({ user: publicUser(updated) });
+    }
+
+    // Toggle a user as a chatroom admin — the "seats" permission only, nothing
+    // else. Quick promotion from the room's person menu.
+    if (pathname === '/api/admin/make-chat-admin' && method === 'POST') {
+      const { userId } = await readJson(request);
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(String(userId ?? '').trim()).first();
+      if (!target) return fail(404, 'user_not_found', '找不到该用户');
+      if (target.is_super) return fail(403, 'super_only', '不能修改超级管理员');
+
+      const set = new Set(target.perms ? target.perms.split(',').filter(Boolean) : []);
+      const nowOn = !set.has('seats');
+      if (nowOn) set.add('seats'); else set.delete('seats');
+      const perms = [...set];
+
+      await db.prepare('UPDATE users SET is_admin = ?, perms = ? WHERE id = ?')
+        .bind(perms.length ? 1 : 0, perms.join(','), target.id).run();
+      await logAction(db, {
+        action: nowOn ? 'grant_chat_admin' : 'revoke_chat_admin', actor: me, target,
+      });
+      return json({ ok: true, on: nowOn });
+    }
+
+    // Kick whoever is in a seat (seat-admins). No coin power needed.
+    if (pathname === '/api/admin/seat-kick' && method === 'POST') {
+      const { seat } = await readJson(request);
+      const n = Number(seat);
+      if (!Number.isInteger(n) || n < 1 || n > 9) return fail(400, 'bad_seat', '无效的座位');
+      await db.prepare('UPDATE users SET seat = NULL WHERE seat = ?').bind(n).run();
+      await logAction(db, { action: 'seat_kick', actor: me, detail: `seat ${n}` });
+      return json({ ok: true });
+    }
+
+    // Pull a user into a seat (seat-admins). Frees the seat first if taken.
+    if (pathname === '/api/admin/seat-assign' && method === 'POST') {
+      const { userId, seat } = await readJson(request);
+      const n = Number(seat);
+      if (!Number.isInteger(n) || n < 1 || n > 9) return fail(400, 'bad_seat', '无效的座位');
+      const target = await db.prepare('SELECT * FROM users WHERE id = ?')
+        .bind(String(userId ?? '').trim()).first();
+      if (!target) return fail(404, 'user_not_found', '找不到该用户');
+      await db.batch([
+        db.prepare('UPDATE users SET seat = NULL WHERE seat = ?').bind(n),   // free target seat
+        db.prepare('UPDATE users SET seat = ? WHERE id = ?').bind(n, target.id),
+      ]);
+      await logAction(db, { action: 'seat_assign', actor: me, target, detail: `seat ${n}` });
+      return json({ ok: true });
     }
 
     if (pathname === '/api/admin/users' && method === 'GET') {

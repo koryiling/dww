@@ -287,6 +287,50 @@ body {
   background: transparent;
 }
 
+.star-layout { display: grid; gap: clamp(0.55rem, 2.5vw, 0.9rem); }
+.star-side { display: grid; gap: clamp(0.55rem, 2.5vw, 0.9rem); min-width: 0; }
+
+@media (min-width: 940px) {
+  .star-layout { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+  .star-frame { height: 78vh; }
+}
+
+.star-hist {
+  margin: 0; padding: 0; list-style: none;
+  display: grid; gap: 0.3rem;
+  max-height: 320px; overflow-y: auto;
+}
+
+.star-hist-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--card-2);
+  border: 2px solid var(--line-soft);
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.star-emoji { font-size: 1.2rem; }
+.star-who { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.star-val { margin-left: auto; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.star-time { color: var(--ink-soft); font-size: 0.72rem; }
+.star-empty { padding: 0.8rem; color: var(--ink-soft); text-align: center; font-size: 0.85rem; }
+
+/* Seat-admin kick button */
+.seat { position: relative; }
+.seat-kick {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 20px; height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
 /* Gift modal */
 .gift-grid {
   display: grid;
