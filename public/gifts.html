@@ -34,15 +34,35 @@ const when = (ms) => new Date(ms).toLocaleString();
 const esc = (s) => String(s).replace(/[&<>"']/g,
   (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+const params = new URLSearchParams(location.search);
+const received = params.get('received');   // grouped view of one user's gifts
+
 async function load() {
   const table = document.getElementById('gift-table');
   try {
-    const res = await fetch('/api/gifts/boards?board=feed&limit=500');
-    const { entries = [] } = await res.json();
+    if (received) {
+      // Aggregated: each gift type once, with how many and total value.
+      const { gifts = [] } = await (await fetch(`/api/gifts/received?userId=${encodeURIComponent(received)}`)).json();
+      const head = `<thead><tr><th></th><th>${t('giftsReceived')}</th>
+        <th>×</th><th>${t('a_colAmount')}</th></tr></thead>`;
+      if (!gifts.length) {
+        table.innerHTML = head + `<tbody><tr><td colspan="4" class="td-empty">${t('noGifts')}</td></tr></tbody>`;
+        return;
+      }
+      table.innerHTML = head + '<tbody>' + gifts.map((g) => `
+        <tr>
+          <td style="font-size:1.5rem">${g.emoji}</td>
+          <td class="mono">${g.giftId}</td>
+          <td class="mono">×${num.format(g.count)}</td>
+          <td class="mono">🪙 ${num.format(g.total)}</td>
+        </tr>`).join('') + '</tbody>';
+      return;
+    }
+
+    const { entries = [] } = await (await fetch('/api/gifts/boards?board=feed&limit=500')).json();
     const head = `<thead><tr>
       <th>${t('a_colTime')}</th><th>${t('spent')}</th><th></th>
       <th>${t('received')}</th><th>${t('a_colAmount')}</th></tr></thead>`;
-
     if (!entries.length) {
       table.innerHTML = head + `<tbody><tr><td colspan="5" class="td-empty">${t('boardEmpty')}</td></tr></tbody>`;
       return;

@@ -76,7 +76,7 @@
   <div class="game-tabs" id="view-tabs">
     <button class="game-tab" data-view="chatroom">💬 <span data-i18n="tabChat">聊天室</span></button>
     <button class="game-tab active" data-view="dww">🐾 <span data-i18n="tabDww">大胃王</span></button>
-    <button class="game-tab soon" data-view="soon">✨ <span data-i18n="comingSoon">敬请期待</span></button>
+    <button class="game-tab" data-view="soon">🚀 <span data-i18n="tabStar">星际旅行</span></button>
   </div>
 
   <header class="hero">
@@ -105,25 +105,12 @@
       </div>
       <ol id="gift-board" class="lb-list"></ol>
     </section>
-
-    <section class="card chat-card">
-      <h2 class="admin-h2">💬 <span data-i18n="chat">聊天</span></h2>
-      <ul id="chat-list" class="chat-list"></ul>
-      <form id="chat-form" class="chat-form">
-        <input id="chat-input" type="text" maxlength="200" data-i18n-ph="chatPlaceholder"
-               placeholder="说点什么…" autocomplete="off">
-        <button type="submit" class="chat-send" data-i18n="send">发送</button>
-      </form>
-    </section>
   </section>
 
-  <!-- ======================= Coming Soon view ======================= -->
-  <section id="view-soon" class="game-view soon-view" hidden>
-    <div class="card" style="text-align:center">
-      <p style="font-size:3rem;margin:0">✨</p>
-      <h2 data-i18n="comingSoon">敬请期待</h2>
-      <p class="hint" data-i18n="comingSoonMsg"></p>
-    </div>
+  <!-- ======================= Star Travel (was Coming Soon) ======================= -->
+  <section id="view-soon" class="game-view" hidden>
+    <iframe id="star-frame" class="star-frame" title="Star Travel"
+            loading="lazy" allowtransparency="true"></iframe>
   </section>
 
   <!-- ======================= DWW game view ======================= -->
@@ -202,14 +189,38 @@
 
   <p id="toast" class="toast" hidden></p>
   <div id="announce" class="announce" hidden></div>
+
+  <!-- Floating chat — available on every tab, minimizes to a bubble so it
+       never interrupts play. -->
+  <button id="chat-fab" class="chat-fab">💬<span id="chat-fab-dot" class="chat-fab-dot" hidden></span></button>
+  <div id="chat-float" class="chat-float" hidden>
+    <div class="chat-float-head">
+      <div class="chat-cats" id="chat-cats">
+        <button class="chat-cat active" data-cat="all" data-i18n="catAll">全部</button>
+        <button class="chat-cat" data-cat="chat" data-i18n="chat">聊天</button>
+        <button class="chat-cat" data-cat="gift" data-i18n="giftFeed">送礼记录</button>
+      </div>
+      <button id="chat-float-min" class="chat-float-min" aria-label="minimize">—</button>
+    </div>
+    <ul id="chat-list" class="chat-list"></ul>
+    <form id="chat-form" class="chat-form">
+      <input id="chat-input" type="text" maxlength="200" data-i18n-ph="chatPlaceholder"
+             placeholder="说点什么…" autocomplete="off">
+      <button type="submit" class="chat-send" data-i18n="send">发送</button>
+    </form>
+  </div>
 </div>
 
-<!-- ===================== Gift overlay ===================== -->
+<!-- ===================== Gift overlay (multi-recipient, stays open) ===================== -->
 <div id="gift-panel" class="panel" hidden>
   <div class="panel-inner">
-    <h2 id="gift-title">Gift</h2>
+    <div class="gift-head">
+      <h2 data-i18n="sendGift">送礼</h2>
+      <button id="gift-close" class="gift-x" aria-label="close">✕</button>
+    </div>
+    <p class="hint" style="margin:0" data-i18n="pickRecipients">选择接收者（可多选）</p>
+    <div id="gift-recipients" class="gift-recipients"></div>
     <div id="gift-grid" class="gift-grid"></div>
-    <button id="gift-close" class="wide-btn subtle" data-i18n="cancel">取消</button>
   </div>
 </div>
 

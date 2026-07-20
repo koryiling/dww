@@ -278,6 +278,15 @@ body {
 
 .soon-view { place-items: center; }
 
+.star-frame {
+  width: 100%;
+  height: 80vh;
+  height: 80dvh;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+}
+
 /* Gift modal */
 .gift-grid {
   display: grid;
@@ -347,6 +356,156 @@ body {
   font-weight: 700;
   text-align: center;
   overflow-wrap: anywhere;
+}
+
+.chat-gift {
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  background: var(--card-2);
+  border: 1px dashed var(--pill-2);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+/* Floating chat bubble + panel — available on every tab. */
+.chat-fab {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 45;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 2px solid var(--green-dark);
+  background: linear-gradient(180deg, var(--green), var(--green-dark));
+  color: #fff;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 6px 18px -4px rgba(0, 0, 0, 0.45);
+}
+
+.chat-fab-dot {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 2px solid #fff;
+}
+
+.chat-float {
+  position: fixed;
+  right: max(0.6rem, env(safe-area-inset-right));
+  bottom: max(0.6rem, env(safe-area-inset-bottom));
+  z-index: 46;
+  width: min(360px, calc(100vw - 1.2rem));
+  max-height: min(60vh, 460px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.chat-float-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--card-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-cats { display: flex; gap: 0.25rem; }
+
+.chat-cat {
+  padding: 0.3rem 0.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-cat.active { background: var(--green); color: #fff; }
+
+.chat-float-min {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.3rem;
+}
+
+.chat-float .chat-list {
+  max-height: none;
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.chat-float .chat-form { padding: 0.5rem; border-top: 1px solid var(--line); }
+
+/* Gift panel: recipients + stays open */
+.gift-head { display: flex; align-items: center; justify-content: space-between; }
+.gift-head h2 { margin: 0; font-size: 1.15rem; }
+
+.gift-x {
+  border: 2px solid var(--line);
+  background: var(--card-2);
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.gift-recipients {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.2rem 0;
+}
+
+.recipient {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.recipient.on { border-color: var(--green); background: #eef8dc; }
+
+.recipient-dot {
+  width: 46px; height: 46px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  background: #fff;
+  font-size: 1.6rem;
+}
+
+.recipient-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .seat-avatar.sm { width: 24px; height: 24px; font-size: 1rem; border-width: 2px; }

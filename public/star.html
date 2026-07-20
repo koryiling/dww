@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Travel</title>
+<style>
+  html, body { margin: 0; background: transparent; }
+  #root { min-height: 100vh; }
+  .loading { color: #fff; text-align: center; padding: 3rem 1rem; font-family: system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"><p class="loading">Loading…</p></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script>
+(async function () {
+  try {
+    const src = await (await fetch('./star-travel-game.jsx')).text();
+
+    // Prepare the component source for in-browser transpile:
+    //  - drop the ES import (React is a UMD global here)
+    //  - drop `export default` so `function App` stays a plain declaration
+    //  - make the game's own full-page background transparent so the site
+    //    background shows through
+    let code = src
+      .replace(/import\s+React[^\n]*\n/, '')
+      .replace(/export\s+default\s+/, '')
+      .replace(
+        'radial-gradient(120% 80% at 50% 0%, #15663d 0%, #0a3a24 55%, #04160e 100%)',
+        'transparent'
+      );
+
+    const out = Babel.transform(code, { presets: ['react'] }).code;
+    const factory = new Function(
+      'React',
+      'const {useState,useRef,useEffect,useMemo,useCallback,useReducer}=React;\n' +
+        out + '\nreturn App;'
+    );
+    const App = factory(React);
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  } catch (err) {
+    document.getElementById('root').innerHTML =
+      '<p class="loading">Failed to load the game.<br>' + String(err) + '</p>';
+  }
+})();
+</script>
+</body>
+</html>

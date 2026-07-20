@@ -546,16 +546,16 @@ async function handle(request, env) {
       ).bind(me.id, me.username, target.id, target.username, gift.id, gift.emoji, gift.cost, received, now),
     ];
 
-    // Gifts worth 1万+ get a room-wide announcement. The components are stored
-    // so the client can format and translate the celebratory line itself.
-    if (gift.cost >= BIG_GIFT) {
-      ops.push(db.prepare(
-        `INSERT INTO chat (user_id, username, color, avatar, text, kind, at)
-         VALUES (?, ?, ?, ?, ?, 'bcast', ?)`
-      ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
-        JSON.stringify({ from: me.username, to: target.username, emoji: gift.emoji, name: gift.name, cost: gift.cost }),
-        now));
-    }
+    // Every gift posts to the feed. 'gift' = a normal line in the Gift tab;
+    // 'bcast' (1万+) also triggers the room-wide banner. The components are
+    // stored so the client can format and translate the line itself.
+    const kind = gift.cost >= BIG_GIFT ? 'bcast' : 'gift';
+    ops.push(db.prepare(
+      `INSERT INTO chat (user_id, username, color, avatar, text, kind, at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
+      JSON.stringify({ from: me.username, to: target.username, emoji: gift.emoji, name: gift.name, cost: gift.cost }),
+      kind, now));
 
     await db.batch(ops);
 

@@ -76,9 +76,9 @@ async function renderReceived(userId) {
       d.innerHTML = `<span class="recv-emoji">${g.emoji}</span><span class="recv-count">×${g.count}</span>`;
       return d;
     }));
-    // More gift types than we show → link to the full received list.
+    // More gift types than we show → the full aggregated received list.
     els.giftsMore.hidden = gifts.length <= MAX_GIFTS;
-    els.giftsMore.href = `gifts.html?to=${encodeURIComponent(userId)}`;
+    els.giftsMore.href = `gifts.html?received=${encodeURIComponent(userId)}`;
   } catch { /* ignore */ }
 }
 

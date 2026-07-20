@@ -35,8 +35,10 @@ const els = {
 
   seats: $('seats'), seatCount: $('seat-count'),
   chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
+  chatFab: $('chat-fab'), chatFabDot: $('chat-fab-dot'), chatFloat: $('chat-float'),
+  chatFloatMin: $('chat-float-min'), chatCats: $('chat-cats'),
   giftTabs: $('gift-tabs'), giftBoard: $('gift-board'),
-  giftPanel: $('gift-panel'), giftTitle: $('gift-title'),
+  giftPanel: $('gift-panel'), giftRecipients: $('gift-recipients'),
   giftGrid: $('gift-grid'), giftClose: $('gift-close'),
   announce: $('announce'),
 
@@ -55,6 +57,10 @@ const state = {
   editColor: null,
   editAvatar: null,
   mySeat: null,
+  seatList: [],
+  messages: [],
+  chatCat: 'all',
+  giftTargets: new Set(),
   lastChatId: 0,
   lastBcastId: 0,
   gifts: [],
@@ -198,6 +204,11 @@ $('view-tabs').addEventListener('click', (event) => {
   }
   els.sideToggle.style.display = view === 'dww' ? '' : 'none';
   if (view === 'chatroom') { loadRoom(); loadGiftBoard(); }
+  // Load the star game's iframe only the first time its tab is opened.
+  if (view === 'soon') {
+    const frame = $('star-frame');
+    if (!frame.src) frame.src = 'star.html';
+  }
 });
 
 /* ---- Profile (top identity bar only; full profile lives on profile.html) ---- */
@@ -517,6 +528,8 @@ async function loadRoom() {
 }
 
 function renderSeats(seats, mySeat) {
+  // Remember who's seated (minus me) for the gift recipient picker.
+  state.seatList = seats.filter(Boolean).filter((o) => o.userId !== state.me?.id);
   const taken = seats.filter(Boolean).length;
   els.seatCount.textContent = `${taken}/9`;
 
@@ -578,8 +591,22 @@ function bcastText(raw) {
   } catch { return raw; }
 }
 
+// A normal gift line for the Gift feed.
+function giftLineText(raw) {
+  try {
+    const g = JSON.parse(raw);
+    return t('giftLine')
+      .replace('{from}', g.from).replace('{to}', g.to)
+      .replace('{emoji}', g.emoji).replace('{name}', g.name ?? '');
+  } catch { return raw; }
+}
+
+const isGiftKind = (m) => m.kind === 'gift' || m.kind === 'bcast';
+
 function renderChat(messages) {
-  // Announce any big-gift broadcast we haven't shown yet.
+  state.messages = messages;
+
+  // Pop the banner for any big gift we haven't shown yet.
   const bcasts = messages.filter((m) => m.kind === 'bcast');
   const newest = bcasts[bcasts.length - 1];
   if (newest && newest.id > state.lastBcastId) {
@@ -587,17 +614,40 @@ function renderChat(messages) {
     state.lastBcastId = newest.id;
   }
 
-  if (!messages.length) {
+  // Nudge the chat bubble when a new message arrives while minimized.
+  const top = messages[messages.length - 1];
+  if (top && top.id > state.lastChatId) {
+    if (state.lastChatId !== 0 && els.chatFloat.hidden) els.chatFabDot.hidden = false;
+    state.lastChatId = top.id;
+  }
+
+  renderChatFiltered();
+}
+
+// Category filter: all / chat (msg only) / gift (gift lines only).
+function renderChatFiltered() {
+  const cat = state.chatCat;
+  const list = state.messages.filter((m) =>
+    cat === 'chat' ? m.kind === 'msg'
+    : cat === 'gift' ? isGiftKind(m)
+    : true);
+
+  if (!list.length) {
     els.chatList.innerHTML = `<li class="chat-empty">${t('noMessages')}</li>`;
     return;
   }
   const atBottom = els.chatList.scrollHeight - els.chatList.scrollTop - els.chatList.clientHeight < 40;
 
-  els.chatList.replaceChildren(...messages.map((m) => {
+  els.chatList.replaceChildren(...list.map((m) => {
     const li = document.createElement('li');
     if (m.kind === 'bcast') {
       li.className = 'chat-bcast';
       li.textContent = bcastText(m.text);
+      return li;
+    }
+    if (m.kind === 'gift') {
+      li.className = 'chat-gift';
+      li.textContent = giftLineText(m.text);
       return li;
     }
     li.className = `chat-msg ${m.userId === state.me?.id ? 'me' : ''}`;
@@ -614,6 +664,28 @@ function renderChat(messages) {
 
   if (atBottom) els.chatList.scrollTop = els.chatList.scrollHeight;
 }
+
+/* ---- Floating chat widget ---- */
+
+els.chatFab.addEventListener('click', () => {
+  els.chatFloat.hidden = false;
+  els.chatFab.hidden = true;
+  els.chatFabDot.hidden = true;
+  els.chatList.scrollTop = els.chatList.scrollHeight;
+});
+
+els.chatFloatMin.addEventListener('click', () => {
+  els.chatFloat.hidden = true;
+  els.chatFab.hidden = false;
+});
+
+els.chatCats.addEventListener('click', (event) => {
+  const tab = event.target.closest('.chat-cat');
+  if (!tab) return;
+  state.chatCat = tab.dataset.cat;
+  for (const b of els.chatCats.children) b.classList.toggle('active', b === tab);
+  renderChatFiltered();
+});
 
 let announceTimer;
 function showAnnouncement(text) {
@@ -644,32 +716,72 @@ async function loadGiftCatalog() {
   try { state.gifts = (await api('/api/gifts/catalog')).gifts; } catch { /* keep empty */ }
 }
 
-function openGiftModal(occ) {
-  els.giftTitle.textContent = t('giveGift').replace('{name}', occ.username);
+// The panel shows everyone seated as circles you can multi-select, then a
+// gift grid that sends to all selected. It stays open so you can keep giving
+// until you close it with ✕.
+function openGiftModal(preselect) {
+  state.giftTargets = new Set(preselect ? [preselect.userId] : []);
+  renderRecipients();
+  renderGiftGrid();
+  els.giftPanel.hidden = false;
+}
+
+function renderRecipients() {
+  if (!state.seatList.length) {
+    els.giftRecipients.innerHTML = `<p class="hint" style="margin:0">${t('noMessages')}</p>`;
+    return;
+  }
+  els.giftRecipients.replaceChildren(...state.seatList.map((occ) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `recipient ${state.giftTargets.has(occ.userId) ? 'on' : ''}`;
+    b.innerHTML = `<span class="recipient-dot" style="border-color:${occ.color}">${occ.avatar}</span>
+      <span class="recipient-name"></span>`;
+    b.querySelector('.recipient-name').textContent = occ.username;
+    b.addEventListener('click', () => {
+      if (state.giftTargets.has(occ.userId)) state.giftTargets.delete(occ.userId);
+      else state.giftTargets.add(occ.userId);
+      b.classList.toggle('on');
+    });
+    return b;
+  }));
+}
+
+function renderGiftGrid() {
   els.giftGrid.replaceChildren(...state.gifts.map((g) => {
     const b = document.createElement('button');
     b.className = 'gift-opt';
     b.innerHTML = `<span class="gift-emoji">${g.emoji}</span>
       <span class="gift-name">${g.name}</span>
       <span class="gift-cost">🪙 ${num.format(g.cost)}</span>`;
-    b.addEventListener('click', () => sendGift(occ, g));
+    b.addEventListener('click', () => sendGift(g));
     return b;
   }));
-  els.giftPanel.hidden = false;
 }
 
-async function sendGift(occ, gift) {
-  els.giftPanel.hidden = true;
-  try {
-    const { user } = await api('/api/gifts/send', {
-      method: 'POST', body: { toUserId: occ.userId, giftId: gift.id },
-    });
-    state.me = user;
+// Send one gift to every selected recipient. Stops early if you run dry.
+async function sendGift(gift) {
+  const targets = [...state.giftTargets];
+  if (!targets.length) return toast(t('pickRecipients'));
+
+  let sent = 0;
+  for (const toUserId of targets) {
+    try {
+      const { user } = await api('/api/gifts/send', { method: 'POST', body: { toUserId, giftId: gift.id } });
+      state.me = user;
+      sent += 1;
+    } catch (error) {
+      toast(tError(error));
+      break;   // usually insufficient — stop before charging further
+    }
+  }
+  if (sent) {
     renderStats();
     renderProfile();
-    toast(t('giftSent').replace('{gift}', gift.emoji).replace('{name}', occ.username));
+    toast(t('giftSent').replace('{gift}', `${gift.emoji}×${sent}`).replace('{name}', `${sent}`));
     loadGiftBoard();
-  } catch (error) { toast(tError(error)); }
+  }
+  // Panel stays open for more gifting.
 }
 
 els.giftClose.addEventListener('click', () => { els.giftPanel.hidden = true; });
