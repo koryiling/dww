@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   salt           TEXT,                   -- NULL while awaiting a reset
   hash           TEXT,
   color          TEXT NOT NULL,
+  birthday       TEXT,                   -- YYYY-MM-DD, optional
   coins          INTEGER NOT NULL,
   is_admin       INTEGER NOT NULL DEFAULT 0,
   must_reset     INTEGER NOT NULL DEFAULT 0,

@@ -9,10 +9,10 @@ const COLORS = [
   '#7aa84e', '#e8873c', '#d9534f', '#c96bb0',
   '#7a6cd6', '#3f8fd0', '#33a89a', '#c8a415',
 ];
-const CHIP_VALUES = [50, 500, 5000];
+const CHIP_VALUES = [500, 1000, 5000, 10000];
 
 const $ = (id) => document.getElementById(id);
-const num = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const num = new Intl.NumberFormat('en-US');
 
 const els = {
   authScreen: $('auth-screen'), gameScreen: $('game-screen'),
@@ -22,12 +22,21 @@ const els = {
   colorField: $('color-field'), swatches: $('swatches'),
   authError: $('auth-error'), authSubmit: $('auth-submit'),
   langAuth: $('lang-auth'), langGame: $('lang-game'),
+
   board: $('board'), chips: $('chips'), timer: $('timer'), balance: $('balance'),
-  playerName: $('player-name'), playerId: $('player-id'), playerDot: $('player-dot'),
-  phaseText: $('phase-text'), toast: $('toast'), logout: $('logout'),
-  lbTabs: $('lb-tabs'), lbList: $('lb-list'),
+  bettors: $('bettors'), phaseText: $('phase-text'), toast: $('toast'),
   adminLink: $('admin-link'), requestTopup: $('request-topup'),
   requestStatus: $('request-status'),
+
+  sidebar: $('sidebar'), sideToggle: $('side-toggle'), refresh: $('refresh'),
+  playerName: $('player-name'), playerId: $('player-id'), playerDot: $('player-dot'),
+  playerBirthday: $('player-birthday'), logout: $('logout'),
+  editProfile: $('edit-profile'), profileForm: $('profile-form'),
+  editName: $('edit-name'), editBirthday: $('edit-birthday'),
+  editSwatches: $('edit-swatches'), profileError: $('profile-error'),
+  cancelEdit: $('cancel-edit'),
+
+  podium: $('podium'), lbTabs: $('lb-tabs'), lbList: $('lb-list'),
   viewRecords: $('view-records'), pastResults: $('past-results'),
   panel: $('panel'), panelTitle: $('panel-title'),
   panelList: $('panel-list'), panelClose: $('panel-close'),
@@ -39,8 +48,9 @@ const state = {
   config: null,
   mode: 'login',
   color: COLORS[0],
+  editColor: null,
   chip: CHIP_VALUES[0],
-  clockOffset: 0,   // serverNow - clientNow
+  clockOffset: 0,
   phase: null,
   myBets: {},
   lastResultId: null,
@@ -66,7 +76,7 @@ async function api(path, { method = 'GET', body } = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const error = new Error(data.error ?? `HTTP ${res.status}`);
-    error.code = data.code;      // stable key, translated client-side
+    error.code = data.code;
     error.status = res.status;
     throw error;
   }
@@ -85,6 +95,7 @@ function refreshLanguage() {
     buildChips();
     renderBoard();
     renderPhaseText();
+    renderProfile();
     loadLeaderboard();
   }
 }
@@ -93,24 +104,21 @@ for (const button of [els.langAuth, els.langGame]) {
   button.addEventListener('click', () => { toggleLang(); refreshLanguage(); });
 }
 
-/* ---- Auth screen ---- */
+/* ---- Auth ---- */
 
-function buildSwatches() {
-  els.swatches.replaceChildren(
-    ...COLORS.map((color) => {
-      const dot = document.createElement('button');
-      dot.type = 'button';
-      dot.className = 'swatch';
-      dot.style.background = color;
-      dot.title = color;
-      dot.addEventListener('click', () => {
-        state.color = color;
-        for (const el of els.swatches.children) el.classList.toggle('active', el === dot);
-      });
-      return dot;
-    })
-  );
-  els.swatches.firstElementChild?.classList.add('active');
+function buildSwatchRow(container, onPick, selected) {
+  container.replaceChildren(...COLORS.map((color) => {
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.className = `swatch ${color === selected ? 'active' : ''}`;
+    dot.style.background = color;
+    dot.title = color;
+    dot.addEventListener('click', () => {
+      onPick(color);
+      for (const el of container.children) el.classList.toggle('active', el === dot);
+    });
+    return dot;
+  }));
 }
 
 function setMode(mode) {
@@ -147,15 +155,9 @@ els.authForm.addEventListener('submit', async (event) => {
     localStorage.setItem(TOKEN_KEY, data.token);
     await enterGame(data.user);
   } catch (error) {
-    // The admin cleared this password — drop them straight into the reset tab.
-    if (error.code === 'needs_reset') {
-      setMode('reset');
-      els.authError.textContent = tError(error);
-      els.authError.hidden = false;
-    } else {
-      els.authError.textContent = tError(error);
-      els.authError.hidden = false;
-    }
+    if (error.code === 'needs_reset') setMode('reset');
+    els.authError.textContent = tError(error);
+    els.authError.hidden = false;
   } finally {
     els.authSubmit.disabled = false;
   }
@@ -165,6 +167,68 @@ els.logout.addEventListener('click', async () => {
   try { await api('/api/logout', { method: 'POST' }); } catch { /* leaving anyway */ }
   localStorage.removeItem(TOKEN_KEY);
   location.reload();
+});
+
+/* ---- Sidebar (collapsible on phones, always open on desktop) ---- */
+
+els.sideToggle.addEventListener('click', () => {
+  els.sidebar.classList.toggle('open');
+  if (els.sidebar.classList.contains('open')) {
+    els.sidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+});
+
+els.refresh.addEventListener('click', async () => {
+  els.refresh.classList.add('spinning');
+  await Promise.all([poll(), loadLeaderboard(), loadRequestStatus()]);
+  setTimeout(() => els.refresh.classList.remove('spinning'), 400);
+});
+
+/* ---- Profile ---- */
+
+function renderProfile() {
+  if (!state.me) return;
+  els.playerName.textContent = state.me.username;
+  els.playerId.textContent = state.me.id;
+  els.playerDot.style.background = state.me.color;
+  els.playerBirthday.textContent = state.me.birthday || t('notSet');
+  els.adminLink.hidden = !state.me.isAdmin;
+  document.documentElement.style.setProperty('--user-color', state.me.color);
+}
+
+els.editProfile.addEventListener('click', () => {
+  els.editName.value = state.me.username;
+  els.editBirthday.value = state.me.birthday ?? '';
+  state.editColor = state.me.color;
+  buildSwatchRow(els.editSwatches, (c) => { state.editColor = c; }, state.me.color);
+  els.profileError.hidden = true;
+  els.profileForm.hidden = false;
+});
+
+els.cancelEdit.addEventListener('click', () => { els.profileForm.hidden = true; });
+
+els.profileForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  els.profileError.hidden = true;
+  try {
+    const { user } = await api('/api/me/update', {
+      method: 'POST',
+      body: {
+        username: els.editName.value,
+        birthday: els.editBirthday.value,
+        color: state.editColor ?? state.me.color,
+      },
+    });
+    state.me = user;
+    renderProfile();
+    renderStats();
+    els.profileForm.hidden = true;
+    toast(t('saved'));
+    loadLeaderboard();
+  } catch (error) {
+    els.profileError.textContent = tError(error);
+    els.profileError.hidden = false;
+  }
 });
 
 /* ---- Board ---- */
@@ -183,8 +247,6 @@ function buildBoard() {
       <span class="animal-art">${animal.art}</span>
       <span class="animal-stake"></span>
     `;
-    tile.querySelector('.animal-name').textContent =
-      lang() === 'zh' ? animal.name : animal.en;
     tile.addEventListener('click', () => placeBet(animal));
     els.board.append(tile);
     tiles.set(animal.id, tile);
@@ -193,20 +255,16 @@ function buildBoard() {
 }
 
 function buildChips() {
-  els.chips.replaceChildren(
-    ...CHIP_VALUES.map((value) => {
-      const chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip';
-      chip.dataset.value = String(value);
-      chip.innerHTML = `<span class="chip-art">🪙</span>
-        <span class="chip-amount">${num.format(value)}</span>
-        <span class="chip-unit"></span>`;
-      chip.querySelector('.chip-unit').textContent = t('coinsUnit');
-      chip.addEventListener('click', () => { state.chip = value; renderChips(); });
-      return chip;
-    })
-  );
+  els.chips.replaceChildren(...CHIP_VALUES.map((value) => {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'chip';
+    chip.dataset.value = String(value);
+    chip.innerHTML = `<span class="chip-art">🪙</span>
+      <span class="chip-amount">${num.format(value)}</span>`;
+    chip.addEventListener('click', () => { state.chip = value; renderChips(); });
+    return chip;
+  }));
   renderChips();
 }
 
@@ -241,10 +299,10 @@ function renderChips() {
 function renderBoard() {
   for (const [id, tile] of tiles) {
     const stake = state.myBets[id] ?? 0;
-    const name = tile.querySelector('.animal-name');
     const animal = animalById.get(id);
+    const name = tile.querySelector('.animal-name');
     if (name && animal) name.textContent = lang() === 'zh' ? animal.name : animal.en;
-    tile.querySelector('.animal-stake').textContent = `${num.format(stake)} ${t('coinsUnit')}`;
+    tile.querySelector('.animal-stake').textContent = num.format(stake);
     tile.classList.toggle('has-bet', stake > 0);
     tile.disabled = state.phase !== 'betting';
   }
@@ -253,27 +311,6 @@ function renderBoard() {
 function renderStats() {
   if (!state.me) return;
   els.balance.textContent = num.format(state.me.coins);
-  els.playerName.textContent = state.me.username;
-  els.playerId.textContent = `#${state.me.id}`;
-  els.playerDot.style.background = state.me.color;
-  document.documentElement.style.setProperty('--user-color', state.me.color);
-  els.adminLink.hidden = !state.me.isAdmin;
-}
-
-/* ---- Top-up requests ---- */
-
-// The button is a link to buy.html; here we only surface whether a request
-// is already waiting, so the player isn't left wondering.
-async function loadRequestStatus() {
-  try {
-    const { request } = await api('/api/topup-request');
-    const pending = request?.status === 'pending';
-    els.requestStatus.hidden = !pending;
-    if (pending) {
-      els.requestStatus.textContent =
-        t('requestWaiting').replace('{amount}', num.format(request.amount));
-    }
-  } catch { /* non-critical */ }
 }
 
 function renderPhaseText() {
@@ -291,7 +328,7 @@ function toast(message) {
   toastTimer = setTimeout(() => { els.toast.hidden = true; }, 2600);
 }
 
-/* ---- Reel (draw-phase animation) ---- */
+/* ---- Reel ---- */
 
 function startReel() {
   if (state.reel) return;
@@ -319,11 +356,11 @@ function revealResult(result) {
   setTimeout(() => {
     for (const tile of tiles.values()) tile.classList.remove('landed');
   }, 4000);
+  // The standings only change once a round has settled.
+  loadLeaderboard({ pop: true });
 }
 
-/* ---- Clock ----
-   The countdown runs locally off the server offset, so it stays smooth
-   between polls and every player sees the same number.                 */
+/* ---- Clock ---- */
 
 function tickClock() {
   if (!state.config) return;
@@ -338,18 +375,11 @@ function tickClock() {
   if (phase !== state.phase) {
     const first = state.phase === null;
     state.phase = phase;
-    if (phase === 'drawing') {
-      startReel();
-    } else {
-      state.myBets = {};   // new round, clean slate
-    }
+    if (phase === 'drawing') startReel();
+    else state.myBets = {};
     renderPhaseText();
     renderChips();
     renderBoard();
-
-    // Poll on the transition rather than on a fast timer. The countdown is
-    // driven locally, so the only moments we actually need the server are
-    // when a round flips — which is also when the result lands.
     if (!first) poll();
   }
 }
@@ -359,10 +389,10 @@ async function poll() {
     const data = await api('/api/state');
     state.clockOffset = data.now - Date.now();
     state.myBets = data.myBets ?? {};
-    if (data.me) { state.me = data.me; renderStats(); }
+    els.bettors.textContent = num.format(data.bettors ?? 0);
+    if (data.me) { state.me = data.me; renderStats(); renderProfile(); }
 
     if (data.lastResult && data.lastResult.roundId !== state.lastResultId) {
-      // Skip the first poll — that result belongs to a round we missed.
       if (state.lastResultId !== null) revealResult(data.lastResult);
       state.lastResultId = data.lastResult.roundId;
     }
@@ -376,11 +406,78 @@ async function poll() {
   }
 }
 
-/* ---- Leaderboard ---- */
+/* ---- Top-up request status ---- */
 
-async function loadLeaderboard() {
+async function loadRequestStatus() {
+  try {
+    const { request } = await api('/api/topup-request');
+    const pending = request?.status === 'pending';
+    els.requestStatus.hidden = !pending;
+    if (pending) {
+      els.requestStatus.textContent =
+        t('requestWaiting').replace('{amount}', num.format(request.amount));
+    }
+  } catch { /* non-critical */ }
+}
+
+/* ---- Podium + leaderboard ---- */
+
+// Highest-paying animals stand in for the medals — 1st 🦁, 2nd 🐷, 3rd 🦊.
+function podiumAvatars() {
+  return [...(state.config?.animals ?? [])]
+    .sort((a, b) => b.payout - a.payout)
+    .slice(0, 3)
+    .map((a) => a.art);
+}
+
+function renderPodium(entries, pop = false) {
+  const avatars = podiumAvatars();
+  // Visual order is 2nd, 1st, 3rd — the tallest step in the middle.
+  const order = [1, 0, 2];
+
+  els.podium.replaceChildren(...order.map((rank) => {
+    const entry = entries[rank];
+    const slot = document.createElement('div');
+    slot.className = `podium-slot rank-${rank + 1}${entry ? '' : ' empty'}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'podium-avatar';
+    avatar.textContent = entry ? avatars[rank] ?? '🏆' : '❔';
+
+    const medal = document.createElement('div');
+    medal.className = 'podium-medal';
+    medal.textContent = ['🥇', '🥈', '🥉'][rank];
+
+    const name = document.createElement('div');
+    name.className = 'podium-name';
+    name.textContent = entry ? entry.username : t('waiting');
+
+    const net = document.createElement('div');
+    net.className = `podium-net ${entry && entry.net < 0 ? 'is-loss' : 'is-win'}`;
+    net.textContent = entry
+      ? `${entry.net >= 0 ? '+' : '−'}${num.format(Math.abs(entry.net))}`
+      : '—';
+
+    const step = document.createElement('div');
+    step.className = 'podium-step';
+    step.textContent = String(rank + 1);
+
+    slot.append(avatar, medal, name, net, step);
+    return slot;
+  }));
+
+  if (pop) {
+    els.podium.classList.remove('pop');
+    void els.podium.offsetWidth;   // restart the animation
+    els.podium.classList.add('pop');
+  }
+}
+
+async function loadLeaderboard({ pop = false } = {}) {
   try {
     const { entries } = await api(`/api/leaderboard?range=${state.lbRange}`);
+    renderPodium(entries, pop);
+
     if (entries.length === 0) {
       const empty = document.createElement('li');
       empty.className = 'lb-empty';
@@ -388,22 +485,21 @@ async function loadLeaderboard() {
       els.lbList.replaceChildren(empty);
       return;
     }
-    els.lbList.replaceChildren(
-      ...entries.map((entry, index) => {
-        const li = document.createElement('li');
-        li.className = `lb-item ${entry.userId === state.me?.id ? 'is-me' : ''}`;
-        li.innerHTML = `
-          <span class="lb-rank">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
-          <span class="lb-dot" style="background:${entry.color}"></span>
-          <span class="lb-name"></span>
-          <span class="lb-rounds">${entry.rounds} ${t('rounds')}</span>
-          <span class="lb-net ${entry.net >= 0 ? 'is-win' : 'is-loss'}">${
-            entry.net >= 0 ? '+' : '−'}${num.format(Math.abs(entry.net))}</span>
-        `;
-        li.querySelector('.lb-name').textContent = entry.username;
-        return li;
-      })
-    );
+
+    els.lbList.replaceChildren(...entries.map((entry, index) => {
+      const li = document.createElement('li');
+      li.className = `lb-item ${entry.userId === state.me?.id ? 'is-me' : ''}`;
+      li.innerHTML = `
+        <span class="lb-rank">${['🥇', '🥈', '🥉'][index] ?? index + 1}</span>
+        <span class="lb-dot" style="background:${entry.color}"></span>
+        <span class="lb-name"></span>
+        <span class="lb-rounds">${entry.rounds} ${t('rounds')}</span>
+        <span class="lb-net ${entry.net >= 0 ? 'is-win' : 'is-loss'}">${
+          entry.net >= 0 ? '+' : '−'}${num.format(Math.abs(entry.net))}</span>
+      `;
+      li.querySelector('.lb-name').textContent = entry.username;
+      return li;
+    }));
   } catch { /* leaderboard is non-critical */ }
 }
 
@@ -449,29 +545,28 @@ function faceOf(record) {
   return `${art} ${name}`;
 }
 
+// Own records only — other players' slips are not shown here.
 els.viewRecords.addEventListener('click', async () => {
   try {
-    const { records } = await api('/api/records');
-    openPanel(`${t('viewRecords')} — ${t('allPlayers')}`, records.map((record) => {
+    const { records } = await api(`/api/records?userId=${encodeURIComponent(state.me.id)}`);
+    openPanel(t('myRecords'), records.map((record) => {
       const li = document.createElement('li');
       li.className = `panel-item ${record.net >= 0 ? 'is-win' : 'is-loss'}`;
       const picks = record.rows
         .map((r) => `${animalById.get(r.animalId)?.art ?? ''}${num.format(r.stake)}`)
         .join(' ');
       li.innerHTML = `
-        <span class="lb-dot" style="background:${record.color}"></span>
-        <span class="panel-user"></span>
         <span>${faceOf(record)}</span>
         ${record.isPlate ? `<span class="panel-tag">${t('plate')}</span>` : ''}
         <span class="panel-picks">${picks}</span>
         <span class="panel-delta">${record.net >= 0 ? '+' : '−'}${num.format(Math.abs(record.net))}</span>
       `;
-      li.querySelector('.panel-user').textContent = record.username;
       return li;
     }));
   } catch (error) { toast(tError(error)); }
 });
 
+// Outcomes, not slips — so this one still spans everybody's rounds.
 els.pastResults.addEventListener('click', async () => {
   try {
     const { records } = await api('/api/records');
@@ -502,6 +597,7 @@ async function enterGame(user) {
   buildBoard();
   buildChips();
   renderStats();
+  renderProfile();
   applyStatic();
 
   await poll();
@@ -509,24 +605,21 @@ async function enterGame(user) {
   await loadRequestStatus();
 
   setInterval(tickClock, 200);
-  setInterval(loadRequestStatus, 30_000);
-  // Slow safety net — tickClock polls on every phase change, so this only
-  // catches drift and background tabs. Two round-trips per 65s round keeps
-  // a full table of players inside Cloudflare's free request allowance.
   setInterval(poll, 30_000);
   setInterval(loadLeaderboard, 60_000);
+  setInterval(loadRequestStatus, 30_000);
 }
 
 (async function boot() {
-  setLang(lang());          // stamps <html lang> and applies static strings
-  buildSwatches();
+  setLang(lang());
+  buildSwatchRow(els.swatches, (c) => { state.color = c; }, COLORS[0]);
   setMode('login');
 
   if (state.token) {
     try {
       const data = await api('/api/state');
       if (data.me) return enterGame(data.me);
-    } catch { /* fall through to the login screen */ }
+    } catch { /* fall through to login */ }
     localStorage.removeItem(TOKEN_KEY);
     state.token = null;
   }

@@ -31,6 +31,7 @@ const publicUser = (row) => ({
   id: row.id,
   username: row.username,
   color: row.color,
+  birthday: row.birthday ?? null,
   coins: row.coins,
   isAdmin: !!row.is_admin,
 });
@@ -299,8 +300,15 @@ async function handle(request, env) {
       for (const bet of bets.results ?? []) myBets[bet.animal_id] = bet.stake;
     }
 
+    // How many players are in on this round — shown live on the board.
+    const bettors = await db.prepare(
+      'SELECT COUNT(DISTINCT user_id) AS n, COALESCE(SUM(stake), 0) AS total FROM bets WHERE round_id = ?'
+    ).bind(roundId).first();
+
     return json({
       now, roundId, phase, msLeft,
+      bettors: bettors?.n ?? 0,
+      betTotal: bettors?.total ?? 0,
       lastResult: {
         roundId: roundId - 1,
         landedId: previous.id,
@@ -312,6 +320,45 @@ async function handle(request, env) {
       me: fresh ? publicUser(fresh) : null,
       myBets,
     });
+  }
+
+  // Players edit their own profile. Username changes go through the same
+  // uniqueness check as registration.
+  if (pathname === '/api/me/update' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { username, birthday, color } = await readJson(request);
+
+    if (username !== undefined) {
+      const name = String(username).trim();
+      const lower = name.toLowerCase();
+      if (!/^[\w一-龥]{2,16}$/.test(name)) {
+        return fail(400, 'bad_username', '用户名需 2–16 位字母、数字或中文');
+      }
+      const taken = await db.prepare(
+        'SELECT id FROM users WHERE username_lower = ? AND id != ?'
+      ).bind(lower, me.id).first();
+      if (taken) return fail(409, 'name_taken', '该用户名已被使用');
+
+      await db.prepare('UPDATE users SET username = ?, username_lower = ? WHERE id = ?')
+        .bind(name, lower, me.id).run();
+    }
+
+    if (birthday !== undefined) {
+      const value = String(birthday ?? '').trim();
+      if (value && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return fail(400, 'bad_birthday', '生日格式需为 YYYY-MM-DD');
+      }
+      await db.prepare('UPDATE users SET birthday = ? WHERE id = ?')
+        .bind(value || null, me.id).run();
+    }
+
+    if (color !== undefined) {
+      if (!/^#[0-9a-f]{6}$/i.test(color)) return fail(400, 'bad_color', '颜色格式无效');
+      await db.prepare('UPDATE users SET color = ? WHERE id = ?').bind(color, me.id).run();
+    }
+
+    const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
+    return json({ user: publicUser(updated) });
   }
 
   if (pathname === '/api/bet' && method === 'POST') {

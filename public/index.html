@@ -53,19 +53,21 @@
 </div>
 
 <!-- ===================== Game ===================== -->
-<div id="game-screen" class="app" hidden>
+<div id="game-screen" class="app wide" hidden>
 
   <div class="topbar">
-    <!-- Superadmin only; revealed once /api/state confirms the flag. -->
     <div class="topbar-group">
+      <!-- Superadmin only; revealed once /api/state confirms the flag. -->
       <a class="icon-btn wide admin-link" id="admin-link" href="admin.html" hidden>
         ⚙ <span data-i18n="adminPage">管理后台</span>
       </a>
     </div>
     <div class="topbar-group">
+      <button class="icon-btn wide side-toggle" id="side-toggle">
+        🏆 <span data-i18n="panel">面板</span>
+      </button>
       <button class="icon-btn wide" id="lang-game" data-i18n="language">English</button>
       <button class="icon-btn" id="music" data-i18n-title="music" aria-label="music">♪</button>
-      <button class="icon-btn" id="logout" data-i18n-title="logout" aria-label="logout">⏻</button>
     </div>
   </div>
 
@@ -74,61 +76,120 @@
     <p class="subtitle" data-i18n="subtitle">– 多人同步 –</p>
   </header>
 
-  <section class="status-card">
-    <div class="polaroid">
-      <div class="polaroid-photo">🐰🐻</div>
-      <span class="polaroid-caption">Yi &amp; Bu ♡</span>
+  <div class="layout">
+
+    <!-- ---------- main column ---------- -->
+    <div class="main-col">
+
+      <section class="status-card">
+        <div class="polaroid">
+          <div class="polaroid-photo">🐰🐻</div>
+          <span class="polaroid-caption">Yi &amp; Bu ♡</span>
+        </div>
+
+        <dl class="stats">
+          <div class="stat">
+            <dt><span class="stat-icon">🕐</span> <span data-i18n="timeLeft">剩余时间：</span></dt>
+            <dd><span id="timer" class="pill">--</span> <span data-i18n="seconds">秒</span></dd>
+          </div>
+          <div class="stat">
+            <dt><span class="stat-icon coin">🪙</span> <span data-i18n="coinsLabel">金币：</span></dt>
+            <dd><span id="balance" class="pill">0</span></dd>
+          </div>
+          <div class="stat">
+            <dt><span class="stat-icon">👥</span> <span data-i18n="playersIn">本轮参与：</span></dt>
+            <dd><span id="bettors" class="pill">0</span> <span data-i18n="peopleUnit">人</span></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section id="chips" class="chip-row" aria-label="chips"></section>
+
+      <section id="board" class="board" aria-label="board"></section>
+
+      <a id="request-topup" class="wide-btn subtle" href="buy.html">
+        <span class="wide-btn-icon">💰</span> <span data-i18n="requestTopup">申请充值</span>
+      </a>
+      <p id="request-status" class="hint" hidden></p>
+
+      <button id="view-records" class="wide-btn">
+        <span class="wide-btn-icon">📋</span> <span data-i18n="myRecords">我的记录</span>
+      </button>
+
+      <section class="round-status">
+        <p id="phase-text" class="phase-text" data-i18n="connecting">连接中…</p>
+        <div class="divider"></div>
+        <button id="past-results" class="wide-btn subtle">
+          <span class="wide-btn-icon">📊</span> <span data-i18n="pastResults">历史开奖</span>
+        </button>
+      </section>
     </div>
 
-    <dl class="stats">
-      <div class="stat">
-        <dt><span class="stat-icon">🕐</span> <span data-i18n="timeLeft">剩余时间：</span></dt>
-        <dd><span id="timer" class="pill">--</span> <span data-i18n="seconds">秒</span></dd>
-      </div>
-      <div class="stat">
-        <dt><span class="stat-icon coin">🪙</span> <span data-i18n="coinsLabel">金币：</span></dt>
-        <dd><span id="balance" class="pill">0</span></dd>
-      </div>
-      <div class="stat">
-        <dt><span class="stat-icon" id="player-dot">👤</span> <span data-i18n="playerLabel">玩家：</span></dt>
-        <dd><strong id="player-name">—</strong> <span class="uid" id="player-id"></span></dd>
-      </div>
-    </dl>
-  </section>
+    <!-- ---------- side column ---------- -->
+    <aside class="side-col" id="sidebar">
 
-  <section id="chips" class="chip-row" aria-label="chips"></section>
+      <!-- Profile -->
+      <section class="card profile">
+        <div class="profile-head">
+          <span class="profile-dot" id="player-dot"></span>
+          <div class="profile-who">
+            <p class="profile-name" id="player-name">—</p>
+            <p class="profile-id">ID <strong id="player-id">—</strong></p>
+          </div>
+          <button class="icon-btn" id="refresh" data-i18n-title="refresh" aria-label="refresh">⟳</button>
+        </div>
 
-  <section id="board" class="board" aria-label="board"></section>
+        <p class="profile-row">
+          <span data-i18n="birthday">生日</span>
+          <strong id="player-birthday">—</strong>
+        </p>
 
-  <a id="request-topup" class="wide-btn subtle" href="buy.html">
-    <span class="wide-btn-icon">💰</span> <span data-i18n="requestTopup">申请充值</span>
-  </a>
-  <p id="request-status" class="hint" hidden></p>
+        <div class="profile-actions">
+          <button class="lb-tab active" id="edit-profile" data-i18n="edit">编辑资料</button>
+          <button class="lb-tab" id="logout" data-i18n="logout">登出</button>
+        </div>
 
-  <!-- Always on screen -->
-  <section class="card leaderboard">
-    <div class="lb-head">
-      <h2>🏆 <span data-i18n="leaderboard">排行榜</span></h2>
-      <div class="lb-tabs" id="lb-tabs">
-        <button class="lb-tab active" data-range="day" data-i18n="daily">今日</button>
-        <button class="lb-tab" data-range="week" data-i18n="weekly">本周</button>
-        <button class="lb-tab" data-range="month" data-i18n="monthly">本月</button>
-      </div>
-    </div>
-    <ol id="lb-list" class="lb-list"></ol>
-  </section>
+        <form id="profile-form" class="form" hidden>
+          <label class="field">
+            <span data-i18n="username">用户名</span>
+            <input id="edit-name" type="text" maxlength="16">
+          </label>
+          <label class="field">
+            <span data-i18n="birthday">生日</span>
+            <input id="edit-birthday" type="date">
+          </label>
+          <div class="field">
+            <span data-i18n="favColor">喜欢的颜色</span>
+            <div id="edit-swatches" class="swatches"></div>
+          </div>
+          <p id="profile-error" class="error" hidden></p>
+          <div class="button-row">
+            <button type="button" class="wide-btn subtle" id="cancel-edit" data-i18n="cancel">取消</button>
+            <button type="submit" class="wide-btn" data-i18n="save">保存</button>
+          </div>
+        </form>
+      </section>
 
-  <button id="view-records" class="wide-btn">
-    <span class="wide-btn-icon">📋</span> <span data-i18n="viewRecords">查看记录</span>
-  </button>
+      <!-- Podium -->
+      <section class="card">
+        <h2 class="admin-h2">🏆 <span data-i18n="top3">前三名</span></h2>
+        <div id="podium" class="podium"></div>
+      </section>
 
-  <section class="round-status">
-    <p id="phase-text" class="phase-text" data-i18n="connecting">连接中…</p>
-    <div class="divider"></div>
-    <button id="past-results" class="wide-btn subtle">
-      <span class="wide-btn-icon">📊</span> <span data-i18n="pastResults">历史开奖</span>
-    </button>
-  </section>
+      <!-- Leaderboard -->
+      <section class="card leaderboard">
+        <div class="lb-head">
+          <h2 class="admin-h2"><span data-i18n="leaderboard">排行榜</span></h2>
+          <div class="lb-tabs" id="lb-tabs">
+            <button class="lb-tab active" data-range="day" data-i18n="daily">今日</button>
+            <button class="lb-tab" data-range="week" data-i18n="weekly">本周</button>
+            <button class="lb-tab" data-range="month" data-i18n="monthly">本月</button>
+          </div>
+        </div>
+        <ol id="lb-list" class="lb-list"></ol>
+      </section>
+    </aside>
+  </div>
 
   <p id="toast" class="toast" hidden></p>
 </div>
