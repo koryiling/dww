@@ -605,15 +605,27 @@ body {
 
 /* ---- Admin categories ---- */
 
+/* The admin console is a compact centred column, not the full-width game
+   layout — a single stack of cards reads better narrow than stretched. */
+.admin-app {
+  max-width: 720px;
+  gap: 0.7rem;
+}
+
+.admin-app .hero { padding: 0.8rem; }
+.admin-app .hero h1 { font-size: clamp(1.2rem, 5vw, 1.6rem); }
+.admin-app .card { padding: clamp(0.7rem, 3vw, 0.9rem); }
+.admin-app .admin-h2 { font-size: clamp(0.9rem, 3.5vw, 1rem); }
+
 /* auto-fit flows the 4–5 categories without leaving an orphan on its own
    row the way a fixed column count does. */
 .cat-nav {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: 0.4rem;
 }
 
-@media (max-width: 360px) {
+@media (max-width: 380px) {
   .cat-nav { grid-template-columns: 1fr 1fr; }
 }
 
@@ -658,7 +670,7 @@ body {
 
 .two-pane { display: grid; gap: clamp(0.55rem, 2.5vw, 0.9rem); }
 
-@media (min-width: 760px) {
+@media (min-width: 620px) {
   .two-pane { grid-template-columns: 1fr 1fr; align-items: start; }
 }
 
@@ -669,20 +681,20 @@ body {
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.82rem;
+  font-size: clamp(0.74rem, 2.8vw, 0.82rem);
   white-space: nowrap;
 }
 
 .admin-table th {
   text-align: left;
-  padding: 0.4rem 0.6rem;
+  padding: 0.35rem 0.5rem;
   color: var(--ink-soft);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   border-bottom: 2px solid var(--line);
 }
 
 .admin-table td {
-  padding: 0.45rem 0.6rem;
+  padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--line-soft);
 }
 
