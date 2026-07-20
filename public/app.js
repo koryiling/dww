@@ -453,10 +453,8 @@ function renderPodium(entries, pop = false) {
     name.textContent = entry ? entry.username : t('waiting');
 
     const net = document.createElement('div');
-    net.className = `podium-net ${entry && entry.net < 0 ? 'is-loss' : 'is-win'}`;
-    net.textContent = entry
-      ? `${entry.net >= 0 ? '+' : '−'}${num.format(Math.abs(entry.net))}`
-      : '—';
+    net.className = 'podium-net is-win';
+    net.textContent = entry ? num.format(entry.spent) : '—';
 
     const step = document.createElement('div');
     step.className = 'podium-step';
@@ -494,8 +492,7 @@ async function loadLeaderboard({ pop = false } = {}) {
         <span class="lb-dot" style="background:${entry.color}"></span>
         <span class="lb-name"></span>
         <span class="lb-rounds">${entry.rounds} ${t('rounds')}</span>
-        <span class="lb-net ${entry.net >= 0 ? 'is-win' : 'is-loss'}">${
-          entry.net >= 0 ? '+' : '−'}${num.format(Math.abs(entry.net))}</span>
+        <span class="lb-net is-win">🪙 ${num.format(entry.spent)}</span>
       `;
       li.querySelector('.lb-name').textContent = entry.username;
       return li;

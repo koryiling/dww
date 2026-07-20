@@ -136,7 +136,7 @@ schema.sql   D1 tables
 | `GET /api/state` | clock, phase, your bets, last result; settles due rounds |
 | `POST /api/bet` | `{ animalId, amount }` |
 | `GET /api/records` | every player's slips |
-| `GET /api/leaderboard?range=day\|week\|month` | net totals |
+| `GET /api/leaderboard?range=day\|week\|month` | total staked per player, highest first |
 | `GET` `POST /api/topup-request` | player asks for coins |
 | `GET /api/admin/lookup?userId=` | name for an ID, before topping up |
 | `GET /api/admin/search?q=` | find by username **or** ID |

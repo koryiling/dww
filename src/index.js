@@ -479,14 +479,16 @@ async function handle(request, env) {
     if (!['day', 'week', 'month'].includes(range)) {
       return fail(400, 'bad_range', '无效的时间范围');
     }
+    // Ranked by total staked, not by profit — so the board is always a
+    // positive number and never exposes who is down.
     const offset = Number(env.TZ_OFFSET_MINUTES ?? 480);
     const { results = [] } = await db.prepare(
       `SELECT r.user_id, u.username, u.color,
-              SUM(r.net) AS net, COUNT(*) AS rounds
+              SUM(r.staked) AS spent, COUNT(*) AS rounds
          FROM records r JOIN users u ON u.id = r.user_id
         WHERE r.at >= ?
         GROUP BY r.user_id
-        ORDER BY net DESC
+        ORDER BY spent DESC
         LIMIT 20`
     ).bind(windowStart(range, offset)).all();
 
@@ -496,7 +498,7 @@ async function handle(request, env) {
         userId: row.user_id,
         username: row.username,
         color: row.color,
-        net: row.net,
+        spent: row.spent,
         rounds: row.rounds,
       })),
     });
