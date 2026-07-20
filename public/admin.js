@@ -429,7 +429,14 @@ async function pwSearch(q) {
         <span class="uid">${u.id}</span>
         <span class="panel-delta">${num.format(u.coins)} 🪙</span>`;
 
-      if (u.isAdmin) {
+      // Role tags. The super account is untouchable; a regular admin can be
+      // reset/deleted, but only by the super.
+      if (u.isSuper) {
+        const tag = document.createElement('span');
+        tag.className = 'panel-tag';
+        tag.textContent = 'SUPER';
+        li.append(tag);
+      } else if (u.isAdmin) {
         const tag = document.createElement('span');
         tag.className = 'panel-tag';
         tag.textContent = 'ADMIN';
@@ -439,15 +446,18 @@ async function pwSearch(q) {
         tag.className = 'panel-tag';
         tag.textContent = t('a_awaitReset');
         li.append(tag);
-      } else {
-        const clear = document.createElement('button');
-        clear.className = 'lb-tab';
-        clear.textContent = t('a_clearPw');
-        clear.addEventListener('click', () => clearPassword(u));
-        li.append(clear);
       }
 
-      if (!u.isAdmin) {
+      // Actions allowed on this target?
+      const canAct = !u.isSuper && (!u.isAdmin || me.isSuper);
+      if (canAct) {
+        if (!u.mustReset) {
+          const clear = document.createElement('button');
+          clear.className = 'lb-tab';
+          clear.textContent = t('a_clearPw');
+          clear.addEventListener('click', () => clearPassword(u));
+          li.append(clear);
+        }
         const del = document.createElement('button');
         del.className = 'lb-tab danger';
         del.textContent = t('a_deleteAcc');

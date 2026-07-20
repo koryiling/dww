@@ -846,8 +846,15 @@ async function handle(request, env) {
       const target = await db.prepare('SELECT * FROM users WHERE id = ?')
         .bind(String(userId ?? '').trim()).first();
       if (!target) return fail(404, 'user_not_found', '找不到该用户 ID');
-      if (target.is_admin && target.id !== me.id) {
-        return fail(403, 'admin_protected', '不能清除其他管理员的密码');
+      // The superadmin account is never cleared here — not even by itself,
+      // since that both risks a lockout and would invalidate the very session
+      // making the request. Recovery is via the DWW_ADMIN_PASSWORD env var.
+      // A regular admin can be cleared, but only by the super.
+      if (target.is_super) {
+        return fail(403, 'admin_protected', '不能清除超级管理员的密码');
+      }
+      if (target.is_admin && !me.is_super) {
+        return fail(403, 'super_only', '仅超级管理员可操作管理员账号');
       }
 
       await db.batch([
@@ -869,7 +876,12 @@ async function handle(request, env) {
       const target = await db.prepare('SELECT * FROM users WHERE id = ?')
         .bind(String(userId ?? '').trim()).first();
       if (!target) return fail(404, 'user_not_found', '找不到该用户 ID');
-      if (target.is_admin) return fail(403, 'admin_protected', '不能删除管理员账号');
+      // The superadmin account can never be deleted. A regular admin can be,
+      // but only by the super.
+      if (target.is_super) return fail(403, 'admin_protected', '不能删除超级管理员');
+      if (target.is_admin && !me.is_super) {
+        return fail(403, 'super_only', '仅超级管理员可删除管理员账号');
+      }
       if (String(confirm ?? '').trim() !== target.username) {
         return fail(400, 'confirm_mismatch', '确认用户名不匹配');
       }
