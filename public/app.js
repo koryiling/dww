@@ -188,6 +188,9 @@ function togglePanel() {
 els.sideToggle.addEventListener('click', togglePanel);
 els.identity.addEventListener('click', togglePanel);
 
+// Placeholder for the next game.
+$('coming-soon').addEventListener('click', () => toast(t('comingSoonMsg')));
+
 // Profile starts collapsed; clicking the header (but not the refresh button)
 // expands it.
 $('profile-head').addEventListener('click', (event) => {

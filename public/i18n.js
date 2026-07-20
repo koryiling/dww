@@ -71,6 +71,9 @@ const STRINGS = {
     pleaseLogin: '请先登录',
 
     panel: '面板',
+    game1: '动物轮盘',
+    comingSoon: '敬请期待',
+    comingSoonMsg: '新游戏正在开发中，敬请期待！',
     playersIn: '本轮参与：',
     peopleUnit: '人',
     myRecords: '我的记录',
@@ -257,6 +260,9 @@ const STRINGS = {
     pleaseLogin: 'Please log in first',
 
     panel: 'Panel',
+    game1: 'Animal Wheel',
+    comingSoon: 'Coming soon',
+    comingSoonMsg: 'A new game is in the works — coming soon!',
     playersIn: 'Players in:',
     peopleUnit: '',
     myRecords: 'My Records',

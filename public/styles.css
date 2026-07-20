@@ -86,6 +86,44 @@ body {
 .topbar.end { justify-content: flex-end; }
 .topbar-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
+/* Game switcher tabs (current game + coming-soon placeholder). */
+.game-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.game-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.5rem;
+  min-width: 0;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  font-size: clamp(0.82rem, 3.2vw, 1rem);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+}
+
+.game-tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.game-tab.active {
+  background: linear-gradient(180deg, var(--green), var(--green-dark));
+  border-color: var(--green-dark);
+  color: #fff;
+}
+
+.game-tab.soon {
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+
 /* Always-visible identity chip in the header (phone + desktop). */
 .identity {
   display: flex;
