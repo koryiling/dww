@@ -56,13 +56,15 @@
 <div id="game-screen" class="app wide" hidden>
 
   <div class="topbar">
+    <!-- Always-visible identity: who you are + your ID, on every device. -->
+    <button class="identity" id="identity" type="button">
+      <span class="identity-dot" id="player-dot-top"></span>
+      <span class="identity-name" id="player-name-top">—</span>
+      <span class="uid" id="player-id-top"></span>
+    </button>
+
     <div class="topbar-group">
-      <!-- Superadmin only; revealed once /api/state confirms the flag. -->
-      <a class="icon-btn wide admin-link" id="admin-link" href="admin.html" hidden>
-        ⚙ <span data-i18n="adminPage">管理后台</span>
-      </a>
-    </div>
-    <div class="topbar-group">
+      <a class="icon-btn admin-link" id="admin-link" href="admin.html" title="管理后台" hidden>⚙</a>
       <button class="icon-btn wide side-toggle" id="side-toggle">
         🏆 <span data-i18n="panel">面板</span>
       </button>

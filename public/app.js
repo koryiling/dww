@@ -29,6 +29,9 @@ const els = {
   requestStatus: $('request-status'),
 
   sidebar: $('sidebar'), sideToggle: $('side-toggle'), refresh: $('refresh'),
+  identity: $('identity'),
+  playerNameTop: $('player-name-top'), playerIdTop: $('player-id-top'),
+  playerDotTop: $('player-dot-top'),
   playerName: $('player-name'), playerId: $('player-id'), playerDot: $('player-dot'),
   playerBirthday: $('player-birthday'), logout: $('logout'),
   editProfile: $('edit-profile'), profileForm: $('profile-form'),
@@ -175,12 +178,15 @@ els.logout.addEventListener('click', async () => {
 
 /* ---- Sidebar (collapsible on phones, always open on desktop) ---- */
 
-els.sideToggle.addEventListener('click', () => {
+function togglePanel() {
   els.sidebar.classList.toggle('open');
   if (els.sidebar.classList.contains('open')) {
     els.sidebar.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-});
+}
+
+els.sideToggle.addEventListener('click', togglePanel);
+els.identity.addEventListener('click', togglePanel);
 
 // Profile starts collapsed; clicking the header (but not the refresh button)
 // expands it.
@@ -199,6 +205,11 @@ els.refresh.addEventListener('click', async () => {
 
 function renderProfile() {
   if (!state.me) return;
+  // Top identity bar (always visible).
+  els.playerNameTop.textContent = state.me.username;
+  els.playerIdTop.textContent = `#${state.me.id}`;
+  els.playerDotTop.style.background = state.me.color;
+  // Detailed profile card in the panel.
   els.playerName.textContent = state.me.username;
   els.playerId.textContent = state.me.id;
   els.playerDot.style.background = state.me.color;
