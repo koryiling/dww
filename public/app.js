@@ -28,26 +28,17 @@ const els = {
   adminLink: $('admin-link'), requestTopup: $('request-topup'),
   requestStatus: $('request-status'),
 
-  sidebar: $('sidebar'), sideToggle: $('side-toggle'), refresh: $('refresh'),
+  sidebar: $('sidebar'), sideToggle: $('side-toggle'),
   identity: $('identity'),
   playerNameTop: $('player-name-top'), playerIdTop: $('player-id-top'),
   playerDotTop: $('player-dot-top'),
-  playerName: $('player-name'), playerId: $('player-id'), playerDot: $('player-dot'),
-  playerBirthday: $('player-birthday'), logout: $('logout'),
-  editProfile: $('edit-profile'), profileForm: $('profile-form'),
-  editName: $('edit-name'), editBirthday: $('edit-birthday'),
-  editSwatches: $('edit-swatches'), editAvatars: $('edit-avatars'),
-  profileError: $('profile-error'), cancelEdit: $('cancel-edit'),
 
   seats: $('seats'), seatCount: $('seat-count'),
   chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
   giftTabs: $('gift-tabs'), giftBoard: $('gift-board'),
   giftPanel: $('gift-panel'), giftTitle: $('gift-title'),
   giftGrid: $('gift-grid'), giftClose: $('gift-close'),
-
-  stSpend: $('st-spend'), stIncome: $('st-income'), stNet: $('st-net'),
-  stTopup: $('st-topup'), stRounds: $('st-rounds'),
-  recordButtons: document.querySelector('.record-buttons'),
+  announce: $('announce'),
 
   podium: $('podium'), lbTabs: $('lb-tabs'), lbList: $('lb-list'),
   viewRecords: $('view-records'), pastResults: $('past-results'),
@@ -65,6 +56,7 @@ const state = {
   editAvatar: null,
   mySeat: null,
   lastChatId: 0,
+  lastBcastId: 0,
   gifts: [],
   giftBoard: 'wealth',
   chip: CHIP_VALUES[0],
@@ -181,12 +173,6 @@ els.authForm.addEventListener('submit', async (event) => {
   }
 });
 
-els.logout.addEventListener('click', async () => {
-  try { await api('/api/logout', { method: 'POST' }); } catch { /* leaving anyway */ }
-  localStorage.removeItem(TOKEN_KEY);
-  location.reload();
-});
-
 /* ---- Sidebar (collapsible on phones, always open on desktop) ---- */
 
 function togglePanel() {
@@ -197,7 +183,9 @@ function togglePanel() {
 }
 
 els.sideToggle.addEventListener('click', togglePanel);
-els.identity.addEventListener('click', togglePanel);
+
+// The identity chip opens the profile page (like a normal app).
+els.identity.addEventListener('click', () => { location.href = 'profile.html'; });
 
 // Top-level view switcher: ChatRoom / DWW / Coming Soon.
 $('view-tabs').addEventListener('click', (event) => {
@@ -208,92 +196,20 @@ $('view-tabs').addEventListener('click', (event) => {
   for (const v of document.querySelectorAll('.game-view')) {
     v.hidden = v.id !== `view-${view}`;
   }
-  // The 🏆 panel toggle only makes sense on the game view.
   els.sideToggle.style.display = view === 'dww' ? '' : 'none';
   if (view === 'chatroom') { loadRoom(); loadGiftBoard(); }
 });
 
-// Profile starts collapsed; clicking the header (but not the refresh button)
-// expands it.
-$('profile-head').addEventListener('click', (event) => {
-  if (event.target.closest('#refresh')) return;
-  $('profile').classList.toggle('collapsed');
-});
-
-els.refresh.addEventListener('click', async () => {
-  els.refresh.classList.add('spinning');
-  await Promise.all([poll(), loadRoundTop(), loadLeaderboard(), loadStats(), loadRequestStatus(), loadRoom()]);
-  setTimeout(() => els.refresh.classList.remove('spinning'), 400);
-});
-
-/* ---- Profile ---- */
+/* ---- Profile (top identity bar only; full profile lives on profile.html) ---- */
 
 function renderProfile() {
   if (!state.me) return;
-  // Top identity bar (always visible).
   els.playerNameTop.textContent = state.me.username;
   els.playerIdTop.textContent = `#${state.me.id}`;
   els.playerDotTop.style.background = state.me.color;
-  // Detailed profile card in the panel.
-  els.playerName.textContent = state.me.username;
-  els.playerId.textContent = state.me.id;
-  els.playerDot.style.background = state.me.color;
-  els.playerBirthday.textContent = state.me.birthday || t('notSet');
   els.adminLink.hidden = !state.me.isAdmin;
   document.documentElement.style.setProperty('--user-color', state.me.color);
 }
-
-els.editProfile.addEventListener('click', () => {
-  els.editName.value = state.me.username;
-  els.editBirthday.value = state.me.birthday ?? '';
-  state.editColor = state.me.color;
-  state.editAvatar = state.me.avatar;
-  buildSwatchRow(els.editSwatches, (c) => { state.editColor = c; }, state.me.color);
-  buildAvatarRow(state.me.avatar);
-  els.profileError.hidden = true;
-  els.profileForm.hidden = false;
-});
-
-function buildAvatarRow(selected) {
-  els.editAvatars.replaceChildren(...(state.config?.avatars ?? []).map((emoji) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = `avatar-opt ${emoji === selected ? 'active' : ''}`;
-    b.textContent = emoji;
-    b.addEventListener('click', () => {
-      state.editAvatar = emoji;
-      for (const el of els.editAvatars.children) el.classList.toggle('active', el === b);
-    });
-    return b;
-  }));
-}
-
-els.cancelEdit.addEventListener('click', () => { els.profileForm.hidden = true; });
-
-els.profileForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  els.profileError.hidden = true;
-  try {
-    const { user } = await api('/api/me/update', {
-      method: 'POST',
-      body: {
-        username: els.editName.value,
-        birthday: els.editBirthday.value,
-        color: state.editColor ?? state.me.color,
-        avatar: state.editAvatar ?? state.me.avatar,
-      },
-    });
-    state.me = user;
-    renderProfile();
-    renderStats();
-    els.profileForm.hidden = true;
-    toast(t('saved'));
-    loadLeaderboard();
-  } catch (error) {
-    els.profileError.textContent = tError(error);
-    els.profileError.hidden = false;
-  }
-});
 
 /* ---- Board ---- */
 
@@ -428,10 +344,9 @@ function revealResult(result) {
   setTimeout(() => {
     for (const tile of tiles.values()) tile.classList.remove('landed');
   }, 4000);
-  // Settlement has just happened, so the boards and my stats all changed.
+  // Settlement has just happened, so the boards changed.
   loadRoundTop({ pop: true });
   loadLeaderboard();
-  loadStats();
 }
 
 /* ---- Clock ---- */
@@ -653,7 +568,25 @@ async function leaveSeat() {
   } catch (error) { toast(tError(error)); }
 }
 
+// Format a big-gift broadcast into celebratory words.
+function bcastText(raw) {
+  try {
+    const g = JSON.parse(raw);
+    return t('bcastMsg')
+      .replace('{from}', g.from).replace('{to}', g.to)
+      .replace('{emoji}', g.emoji).replace('{name}', g.name ?? '');
+  } catch { return raw; }
+}
+
 function renderChat(messages) {
+  // Announce any big-gift broadcast we haven't shown yet.
+  const bcasts = messages.filter((m) => m.kind === 'bcast');
+  const newest = bcasts[bcasts.length - 1];
+  if (newest && newest.id > state.lastBcastId) {
+    if (state.lastBcastId !== 0) showAnnouncement(bcastText(newest.text));
+    state.lastBcastId = newest.id;
+  }
+
   if (!messages.length) {
     els.chatList.innerHTML = `<li class="chat-empty">${t('noMessages')}</li>`;
     return;
@@ -662,6 +595,11 @@ function renderChat(messages) {
 
   els.chatList.replaceChildren(...messages.map((m) => {
     const li = document.createElement('li');
+    if (m.kind === 'bcast') {
+      li.className = 'chat-bcast';
+      li.textContent = bcastText(m.text);
+      return li;
+    }
     li.className = `chat-msg ${m.userId === state.me?.id ? 'me' : ''}`;
     li.innerHTML = `
       <span class="chat-avatar">${m.avatar}</span>
@@ -674,8 +612,18 @@ function renderChat(messages) {
     return li;
   }));
 
-  // Keep the newest message in view unless the user scrolled up to read.
   if (atBottom) els.chatList.scrollTop = els.chatList.scrollHeight;
+}
+
+let announceTimer;
+function showAnnouncement(text) {
+  els.announce.textContent = text;
+  els.announce.hidden = false;
+  els.announce.classList.remove('show');
+  void els.announce.offsetWidth;   // restart the animation
+  els.announce.classList.add('show');
+  clearTimeout(announceTimer);
+  announceTimer = setTimeout(() => { els.announce.hidden = true; }, 6000);
 }
 
 els.chatForm.addEventListener('submit', async (event) => {
@@ -736,14 +684,24 @@ async function loadGiftBoard() {
     }
 
     if (board === 'feed') {
-      els.giftBoard.replaceChildren(...entries.map((e) => {
+      const rows = entries.slice(0, 10).map((e) => {
         const li = document.createElement('li');
         li.className = 'lb-item';
         li.innerHTML = `<span class="feed-line"></span><span class="lb-net is-win">${e.emoji}</span>`;
         li.querySelector('.feed-line').textContent =
           t('gaveGift').replace('{from}', e.from).replace('{to}', e.to).replace('{gift}', '');
         return li;
-      }));
+      });
+      // "View more" opens the full records page.
+      const more = document.createElement('li');
+      more.className = 'lb-more';
+      const link = document.createElement('a');
+      link.href = 'gifts.html';
+      link.className = 'lb-tab';
+      link.textContent = t('viewMore');
+      more.append(link);
+      rows.push(more);
+      els.giftBoard.replaceChildren(...rows);
       return;
     }
 
@@ -820,22 +778,7 @@ function recordItem(record) {
   return li;
 }
 
-/* ---- Personal dashboard ---- */
-
-async function loadStats() {
-  try {
-    const s = await api('/api/me/stats');
-    els.stSpend.textContent = num.format(s.spend);
-    els.stIncome.textContent = num.format(s.income);
-    els.stTopup.textContent = num.format(s.topups);
-    els.stNet.textContent = `${s.net >= 0 ? '+' : '−'}${num.format(Math.abs(s.net))}`;
-    els.stNet.className = s.net >= 0 ? 'is-win' : 'is-loss';
-    els.stRounds.textContent = t('roundsPlayed')
-      .replace('{rounds}', s.rounds).replace('{wins}', s.wins).replace('{losses}', s.losses);
-  } catch { /* non-critical */ }
-}
-
-// All four views are the player's own data only.
+// Player records (own only), opened from the 我的记录 button.
 async function openRecords(kind) {
   try {
     if (kind === 'topup') {
@@ -863,11 +806,6 @@ async function openRecords(kind) {
     toast(tError(error));
   }
 }
-
-els.recordButtons.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-records]');
-  if (button) openRecords(button.dataset.records);
-});
 
 // Own records only — other players' slips are not shown here.
 els.viewRecords.addEventListener('click', () => openRecords('game'));
@@ -909,7 +847,6 @@ async function enterGame(user) {
   await poll();
   await loadRoundTop();
   await loadLeaderboard();
-  await loadStats();
   await loadRequestStatus();
   await loadRoom();
   await loadGiftCatalog();

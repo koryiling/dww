@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   hash           TEXT,
   color          TEXT NOT NULL,
   avatar         TEXT,                   -- emoji shown on the seat
+  bio            TEXT,                   -- self-written intro shown on the profile
   seat           INTEGER,                -- 1..9 while seated, else NULL
   birthday       TEXT,                   -- YYYY-MM-DD, optional
   coins          INTEGER NOT NULL,
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS chat (
   color    TEXT NOT NULL,
   avatar   TEXT,
   text     TEXT NOT NULL,
+  kind     TEXT NOT NULL DEFAULT 'msg',   -- 'msg' | 'bcast' (big-gift broadcast)
   at       INTEGER NOT NULL
 );
 

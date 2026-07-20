@@ -40,22 +40,33 @@ const AVATARS = ['🐰', '🐻', '🐱', '🐶', '🦊', '🐼', '🐨', '🐯',
 // Gift catalogue. The receiver keeps RECEIVER_SHARE of the cost.
 const RECEIVER_SHARE = 0.7;
 const GIFTS = [
-  { id: 'rose',    emoji: '🌹', name: '玫瑰', cost: 100 },
-  { id: 'cake',    emoji: '🎂', name: '蛋糕', cost: 520 },
-  { id: 'kiss',    emoji: '💋', name: '飞吻', cost: 1000 },
-  { id: 'crown',   emoji: '👑', name: '皇冠', cost: 5000 },
-  { id: 'ring',    emoji: '💍', name: '戒指', cost: 10000 },
-  { id: 'car',     emoji: '🚗', name: '跑车', cost: 52000 },
-  { id: 'rocket',  emoji: '🚀', name: '火箭', cost: 100000 },
-  { id: 'castle',  emoji: '🏰', name: '城堡', cost: 520000 },
+  { id: 'candy',    emoji: '🍬', name: '糖果',     cost: 10 },
+  { id: 'flower',   emoji: '🌸', name: '小花',     cost: 50 },
+  { id: 'rose',     emoji: '🌹', name: '玫瑰',     cost: 100 },
+  { id: 'beer',     emoji: '🍺', name: '啤酒',     cost: 200 },
+  { id: 'cake',     emoji: '🍰', name: '甜点',     cost: 300 },
+  { id: 'choc',     emoji: '🍫', name: '巧克力',   cost: 500 },
+  { id: 'bouquet',  emoji: '💐', name: '花束',     cost: 1000 },
+  { id: 'guitar',   emoji: '🎸', name: '吉他',     cost: 2500 },
+  { id: 'love',     emoji: '💕', name: '我爱你',   cost: 5200 },
+  { id: 'ring',     emoji: '💍', name: '戒指',     cost: 10000 },
+  { id: 'carousel', emoji: '🎠', name: '旋转木马', cost: 28880 },
+  { id: 'star',     emoji: '⭐', name: '星辰',     cost: 33440 },
+  { id: 'car',      emoji: '🚗', name: '跑车',     cost: 52000 },
+  { id: 'watch',    emoji: '⌚', name: '名表',     cost: 68800 },
+  { id: 'rocket',   emoji: '🚀', name: '火箭',     cost: 100000 },
+  { id: 'forever',  emoji: '💞', name: '一生一世', cost: 131400 },
+  { id: 'castle',   emoji: '🏰', name: '城堡',     cost: 520000 },
 ];
 const giftById = new Map(GIFTS.map((g) => [g.id, g]));
+const BIG_GIFT = 10_000;   // 1万+ triggers a room-wide announcement
 
 const publicUser = (row) => ({
   id: row.id,
   username: row.username,
   color: row.color,
   avatar: row.avatar ?? '🐰',
+  bio: row.bio ?? '',
   seat: row.seat ?? null,
   birthday: row.birthday ?? null,
   coins: row.coins,
@@ -393,7 +404,7 @@ async function handle(request, env) {
   // uniqueness check as registration.
   if (pathname === '/api/me/update' && method === 'POST') {
     if (!me) return fail(401, 'auth_required', '请先登录');
-    const { username, birthday, color, avatar } = await readJson(request);
+    const { username, birthday, color, avatar, bio } = await readJson(request);
 
     if (username !== undefined) {
       const name = String(username).trim();
@@ -431,6 +442,11 @@ async function handle(request, env) {
       await db.prepare('UPDATE chat SET avatar = ? WHERE user_id = ?').bind(avatar, me.id).run();
     }
 
+    if (bio !== undefined) {
+      const value = String(bio ?? '').slice(0, 200);
+      await db.prepare('UPDATE users SET bio = ? WHERE id = ?').bind(value, me.id).run();
+    }
+
     const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
     return json({ user: publicUser(updated) });
   }
@@ -449,7 +465,7 @@ async function handle(request, env) {
     }
 
     const { results: msgs = [] } = await db.prepare(
-      'SELECT id, user_id, username, color, avatar, text, at FROM chat ORDER BY at DESC LIMIT 50'
+      'SELECT id, user_id, username, color, avatar, text, kind, at FROM chat ORDER BY at DESC LIMIT 50'
     ).all();
 
     return json({
@@ -457,7 +473,8 @@ async function handle(request, env) {
       mySeat: me?.seat ?? null,
       messages: msgs.reverse().map((m) => ({
         id: m.id, userId: m.user_id, username: m.username,
-        color: m.color, avatar: m.avatar ?? '🐰', text: m.text, at: m.at,
+        color: m.color, avatar: m.avatar ?? '🐰', text: m.text,
+        kind: m.kind ?? 'msg', at: m.at,
       })),
     });
   }
@@ -520,16 +537,58 @@ async function handle(request, env) {
     }
 
     const received = Math.floor(gift.cost * RECEIVER_SHARE);
-    await db.batch([
+    const now = Date.now();
+    const ops = [
       db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(received, target.id),
       db.prepare(
         `INSERT INTO gifts (from_id, from_name, to_id, to_name, gift_id, emoji, cost, received, at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(me.id, me.username, target.id, target.username, gift.id, gift.emoji, gift.cost, received, Date.now()),
-    ]);
+      ).bind(me.id, me.username, target.id, target.username, gift.id, gift.emoji, gift.cost, received, now),
+    ];
+
+    // Gifts worth 1万+ get a room-wide announcement. The components are stored
+    // so the client can format and translate the celebratory line itself.
+    if (gift.cost >= BIG_GIFT) {
+      ops.push(db.prepare(
+        `INSERT INTO chat (user_id, username, color, avatar, text, kind, at)
+         VALUES (?, ?, ?, ?, ?, 'bcast', ?)`
+      ).bind(me.id, me.username, me.color, me.avatar ?? '🐰',
+        JSON.stringify({ from: me.username, to: target.username, emoji: gift.emoji, name: gift.name, cost: gift.cost }),
+        now));
+    }
+
+    await db.batch(ops);
 
     const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
-    return json({ ok: true, user: publicUser(updated) });
+    return json({ ok: true, user: publicUser(updated), announced: gift.cost >= BIG_GIFT });
+  }
+
+  // Public profile — only the fields anyone may see. Coins/email never leave.
+  if (pathname === '/api/profile' && method === 'GET') {
+    const id = String(url.searchParams.get('id') ?? '').trim();
+    const row = await db.prepare('SELECT id, username, color, avatar, bio FROM users WHERE id = ?')
+      .bind(id).first();
+    if (!row) return fail(404, 'user_not_found', '找不到该用户');
+    return json({
+      profile: {
+        id: row.id, username: row.username, color: row.color,
+        avatar: row.avatar ?? '🐰', bio: row.bio ?? '',
+        isMe: !!me && me.id === row.id,
+      },
+    });
+  }
+
+  // Gifts a user has received, grouped by type with a count — for the profile.
+  if (pathname === '/api/gifts/received' && method === 'GET') {
+    const userId = String(url.searchParams.get('userId') ?? me?.id ?? '').trim();
+    if (!userId) return fail(400, 'bad_target', '缺少用户');
+    const { results = [] } = await db.prepare(
+      `SELECT emoji, gift_id, COUNT(*) AS count, SUM(received) AS total
+         FROM gifts WHERE to_id = ? GROUP BY gift_id ORDER BY total DESC`
+    ).bind(userId).all();
+    return json({
+      gifts: results.map((r) => ({ emoji: r.emoji, giftId: r.gift_id, count: r.count, total: r.total })),
+    });
   }
 
   // Wealth (most sent), Charm (most received), and the gift feed.
@@ -537,9 +596,14 @@ async function handle(request, env) {
     const board = url.searchParams.get('board') ?? 'wealth';
 
     if (board === 'feed') {
-      const { results = [] } = await db.prepare(
-        'SELECT from_name, to_name, emoji, gift_id, cost, at FROM gifts ORDER BY at DESC LIMIT 30'
-      ).all();
+      // The room shows 10; the full-records page asks for more via ?limit.
+      // ?to=<id> narrows to gifts received by one user (their profile page).
+      const limit = Math.min(500, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
+      const to = String(url.searchParams.get('to') ?? '').trim();
+      const query = to
+        ? db.prepare('SELECT from_name, to_name, emoji, gift_id, cost, at FROM gifts WHERE to_id = ? ORDER BY at DESC LIMIT ?').bind(to, limit)
+        : db.prepare('SELECT from_name, to_name, emoji, gift_id, cost, at FROM gifts ORDER BY at DESC LIMIT ?').bind(limit);
+      const { results = [] } = await query.all();
       return json({
         board, entries: results.map((r) => ({
           from: r.from_name, to: r.to_name, emoji: r.emoji, cost: r.cost, at: r.at,

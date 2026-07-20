@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>送礼记录 Gift records — 大胃王</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app admin-app">
+  <div class="topbar">
+    <a class="icon-btn wide" href="index.html">← <span data-i18n="backToGame">返回游戏</span></a>
+    <button class="icon-btn wide" id="lang" data-i18n="language">English</button>
+  </div>
+
+  <header class="hero">
+    <h1>🎁 <span data-i18n="giftFeed">送礼记录</span></h1>
+  </header>
+
+  <section class="card">
+    <div class="table-wrap">
+      <table class="admin-table" id="gift-table"></table>
+    </div>
+  </section>
+
+  <p id="toast" class="toast" hidden></p>
+</div>
+
+<script type="module">
+import { applyStatic, lang, setLang, t } from './i18n.js';
+
+const num = new Intl.NumberFormat('en-US');
+const when = (ms) => new Date(ms).toLocaleString();
+const esc = (s) => String(s).replace(/[&<>"']/g,
+  (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+async function load() {
+  const table = document.getElementById('gift-table');
+  try {
+    const res = await fetch('/api/gifts/boards?board=feed&limit=500');
+    const { entries = [] } = await res.json();
+    const head = `<thead><tr>
+      <th>${t('a_colTime')}</th><th>${t('spent')}</th><th></th>
+      <th>${t('received')}</th><th>${t('a_colAmount')}</th></tr></thead>`;
+
+    if (!entries.length) {
+      table.innerHTML = head + `<tbody><tr><td colspan="5" class="td-empty">${t('boardEmpty')}</td></tr></tbody>`;
+      return;
+    }
+    table.innerHTML = head + '<tbody>' + entries.map((e) => `
+      <tr>
+        <td>${when(e.at)}</td>
+        <td>${esc(e.from)}</td>
+        <td style="font-size:1.3rem">${e.emoji}</td>
+        <td>${esc(e.to)}</td>
+        <td class="mono">🪙 ${num.format(e.cost)}</td>
+      </tr>`).join('') + '</tbody>';
+  } catch { /* ignore */ }
+}
+
+document.getElementById('lang').addEventListener('click', () => {
+  setLang(lang() === 'zh' ? 'en' : 'zh');
+  applyStatic();
+  load();
+});
+
+setLang(lang());
+applyStatic();
+load();
+</script>
+</body>
+</html>

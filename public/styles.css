@@ -305,8 +305,100 @@ body {
 .seat.giftable { cursor: pointer; }
 .seat.giftable:hover { border-color: var(--gold); background: #fdf6e0; }
 
+/* Big-gift broadcast — a banner that slides across the top for everyone. */
+.announce {
+  position: fixed;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.7rem 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffd23f, #ff9137, #ff5db1, #a978ff);
+  color: #3a1d00;
+  font-weight: 800;
+  font-size: clamp(0.85rem, 3.4vw, 1.05rem);
+  text-align: center;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.announce.show { animation: announce-in 0.5s cubic-bezier(.2,1.5,.4,1) both, announce-glow 1.2s ease-in-out infinite 0.5s; }
+
+@keyframes announce-in {
+  0%   { transform: translateX(-50%) translateY(-80px) scale(0.8); opacity: 0; }
+  100% { transform: translateX(-50%) translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes announce-glow {
+  0%, 100% { box-shadow: 0 8px 24px -6px rgba(255, 145, 55, 0.5); }
+  50%      { box-shadow: 0 8px 30px -2px rgba(255, 93, 177, 0.8); }
+}
+
+.chat-bcast {
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #fff3d6, #ffe6f0);
+  border: 2px solid var(--gold);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 .seat-avatar.sm { width: 24px; height: 24px; font-size: 1rem; border-width: 2px; }
 .feed-line { overflow-wrap: anywhere; }
+
+.lb-more { list-style: none; text-align: center; margin-top: 0.3rem; }
+.lb-more .lb-tab { display: inline-block; text-decoration: none; }
+
+/* Profile page bits */
+.bio-box {
+  margin: 0;
+  padding: 0.8rem 1rem;
+  min-height: 3rem;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  background: var(--card-2);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.bio-input {
+  padding: 0.6rem 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--card-2);
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+}
+
+.recv-gifts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 0.5rem;
+}
+
+.recv-gift {
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  padding: 0.6rem 0.3rem;
+  border: 2px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--card-2);
+}
+
+.recv-emoji { font-size: 1.8rem; line-height: 1; }
+.recv-count { font-size: 0.78rem; font-weight: 700; color: var(--ink-soft); }
+
+/* The identity chip sits at the top-right of the header. */
+.topbar .identity { order: 2; margin-left: auto; }
+.topbar .topbar-group { order: 1; }
 
 /* Always-visible identity chip in the header (phone + desktop). */
 .identity {

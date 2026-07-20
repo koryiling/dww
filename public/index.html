@@ -179,85 +179,6 @@
     <!-- ---------- side column ---------- -->
     <aside class="side-col" id="sidebar">
 
-      <!-- Profile — click the header to expand -->
-      <section class="card profile collapsed" id="profile">
-        <div class="profile-head" id="profile-head">
-          <span class="profile-dot" id="player-dot"></span>
-          <div class="profile-who">
-            <p class="profile-name" id="player-name">—</p>
-            <p class="profile-id">ID <strong id="player-id">—</strong></p>
-          </div>
-          <button class="icon-btn" id="refresh" data-i18n-title="refresh" aria-label="refresh">⟳</button>
-          <span class="profile-caret" id="profile-caret">▾</span>
-        </div>
-
-        <div class="profile-body">
-          <p class="profile-row">
-            <span data-i18n="birthday">生日</span>
-            <strong id="player-birthday">—</strong>
-          </p>
-
-          <div class="profile-actions">
-            <button class="lb-tab active" id="edit-profile" data-i18n="edit">编辑资料</button>
-            <button class="lb-tab" id="logout" data-i18n="logout">登出</button>
-          </div>
-
-          <form id="profile-form" class="form" hidden>
-          <label class="field">
-            <span data-i18n="username">用户名</span>
-            <input id="edit-name" type="text" maxlength="16">
-          </label>
-          <label class="field">
-            <span data-i18n="birthday">生日</span>
-            <input id="edit-birthday" type="date">
-          </label>
-          <div class="field">
-            <span data-i18n="favColor">喜欢的颜色</span>
-            <div id="edit-swatches" class="swatches"></div>
-          </div>
-          <div class="field">
-            <span data-i18n="avatar">头像</span>
-            <div id="edit-avatars" class="avatar-grid"></div>
-          </div>
-          <p id="profile-error" class="error" hidden></p>
-          <div class="button-row">
-            <button type="button" class="wide-btn subtle" id="cancel-edit" data-i18n="cancel">取消</button>
-            <button type="submit" class="wide-btn" data-i18n="save">保存</button>
-          </div>
-          </form>
-        </div>
-      </section>
-
-      <!-- Personal dashboard -->
-      <section class="card">
-        <h2 class="admin-h2">📊 <span data-i18n="dashboard">我的数据</span></h2>
-        <div class="stat-tiles">
-          <div class="stat-tile">
-            <span data-i18n="totalSpend">总下注</span>
-            <strong id="st-spend">0</strong>
-          </div>
-          <div class="stat-tile">
-            <span data-i18n="totalIncome">总收入</span>
-            <strong id="st-income">0</strong>
-          </div>
-          <div class="stat-tile">
-            <span data-i18n="netProfit">净盈亏</span>
-            <strong id="st-net">0</strong>
-          </div>
-          <div class="stat-tile">
-            <span data-i18n="totalTopup">总充值</span>
-            <strong id="st-topup">0</strong>
-          </div>
-        </div>
-        <p class="stat-line" id="st-rounds">—</p>
-        <div class="record-buttons">
-          <button class="lb-tab" data-records="game" data-i18n="gameRecords">游戏记录</button>
-          <button class="lb-tab" data-records="win" data-i18n="winRecords">赢的记录</button>
-          <button class="lb-tab" data-records="lose" data-i18n="loseRecords">输的记录</button>
-          <button class="lb-tab" data-records="topup" data-i18n="topupRecords">充值记录</button>
-        </div>
-      </section>
-
       <!-- This round's top 3 -->
       <section class="card">
         <h2 class="admin-h2">🏆 <span data-i18n="top3">本局前三名</span></h2>
@@ -280,6 +201,7 @@
   </div>
 
   <p id="toast" class="toast" hidden></p>
+  <div id="announce" class="announce" hidden></div>
 </div>
 
 <!-- ===================== Gift overlay ===================== -->
