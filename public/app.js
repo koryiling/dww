@@ -29,9 +29,13 @@ const els = {
   requestStatus: $('request-status'),
 
   sidebar: $('sidebar'), sideToggle: $('side-toggle'),
-  identity: $('identity'),
+  identity: $('identity'), coinsTop: $('coins-top'),
   playerNameTop: $('player-name-top'), playerIdTop: $('player-id-top'),
   playerDotTop: $('player-dot-top'),
+  onlineList: $('online-list'), onlineCount: $('online-count'),
+  personPanel: $('person-panel'), personAvatar: $('person-avatar'),
+  personName: $('person-name'), personProfile: $('person-profile'),
+  personGift: $('person-gift'), personCancel: $('person-cancel'),
 
   seats: $('seats'), seatCount: $('seat-count'),
   chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
@@ -310,6 +314,7 @@ function renderBoard() {
 function renderStats() {
   if (!state.me) return;
   els.balance.textContent = num.format(state.me.coins);
+  els.coinsTop.textContent = num.format(state.me.coins);
 }
 
 function renderPhaseText() {
@@ -520,12 +525,49 @@ els.lbTabs.addEventListener('click', (event) => {
 
 async function loadRoom() {
   try {
-    const { seats, mySeat, messages } = await api('/api/room');
+    const { seats, online, mySeat, messages } = await api('/api/room');
     state.mySeat = mySeat;
     renderSeats(seats, mySeat);
+    renderOnline(online ?? []);
     renderChat(messages);
   } catch { /* non-critical */ }
 }
+
+function renderOnline(people) {
+  els.onlineCount.textContent = people.length;
+  if (!people.length) {
+    els.onlineList.innerHTML = `<p class="hint" style="margin:0">—</p>`;
+    return;
+  }
+  els.onlineList.replaceChildren(...people.map((p) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'online-person';
+    b.innerHTML = `<span class="online-dot" style="border-color:${p.color}">${p.avatar}</span>
+      <span class="online-name"></span>`;
+    b.querySelector('.online-name').textContent = p.username;
+    // Clicking anyone (online list or seat) offers View Profile / Gift.
+    b.addEventListener('click', () => openPersonMenu(p));
+    return b;
+  }));
+}
+
+/* ---- Person action chooser ---- */
+
+function openPersonMenu(person) {
+  els.personAvatar.textContent = person.avatar;
+  els.personName.textContent = person.username;
+  els.personProfile.onclick = () => { location.href = `profile.html?id=${encodeURIComponent(person.userId)}`; };
+  els.personGift.onclick = () => {
+    els.personPanel.hidden = true;
+    if (person.userId === state.me?.id) return toast(t('pickRecipients'));
+    openGiftModal(person);
+  };
+  els.personPanel.hidden = false;
+}
+
+els.personCancel.addEventListener('click', () => { els.personPanel.hidden = true; });
+els.personPanel.addEventListener('click', (e) => { if (e.target === els.personPanel) els.personPanel.hidden = true; });
 
 function renderSeats(seats, mySeat) {
   // Remember who's seated (minus me) for the gift recipient picker.
@@ -551,9 +593,9 @@ function renderSeats(seats, mySeat) {
         leave.addEventListener('click', (e) => { e.stopPropagation(); leaveSeat(); });
         seat.append(leave);
       } else {
-        // Tap someone else's seat to send them a gift.
+        // Tap someone's seat → View Profile / Send Gift.
         seat.classList.add('giftable');
-        seat.addEventListener('click', () => openGiftModal(occ));
+        seat.addEventListener('click', () => openPersonMenu(occ));
       }
     } else {
       seat.innerHTML = `<span class="seat-num">${n}</span>`;

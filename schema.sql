@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar         TEXT,                   -- emoji shown on the seat
   bio            TEXT,                   -- self-written intro shown on the profile
   seat           INTEGER,                -- 1..9 while seated, else NULL
+  last_seen      INTEGER,                -- updated each poll; drives the online list
   birthday       TEXT,                   -- YYYY-MM-DD, optional
   coins          INTEGER NOT NULL,
   is_admin       INTEGER NOT NULL DEFAULT 0,

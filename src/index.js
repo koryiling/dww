@@ -338,6 +338,8 @@ async function handle(request, env) {
     let fresh = me;
     let myBets = {};
     if (me) {
+      // Mark presence — this poll means the player is online right now.
+      await db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').bind(now, me.id).run();
       fresh = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
       const bets = await db.prepare(
         'SELECT animal_id, stake FROM bets WHERE round_id = ? AND user_id = ?'
@@ -468,8 +470,16 @@ async function handle(request, env) {
       'SELECT id, user_id, username, color, avatar, text, kind, at FROM chat ORDER BY at DESC LIMIT 50'
     ).all();
 
+    // Everyone active in the last 90s — the online-people list.
+    const { results: onlineRows = [] } = await db.prepare(
+      'SELECT id, username, color, avatar FROM users WHERE last_seen >= ? ORDER BY username COLLATE NOCASE LIMIT 100'
+    ).bind(Date.now() - 90_000).all();
+
     return json({
       seats,
+      online: onlineRows.map((u) => ({
+        userId: u.id, username: u.username, color: u.color, avatar: u.avatar ?? '🐰',
+      })),
       mySeat: me?.seat ?? null,
       messages: msgs.reverse().map((m) => ({
         id: m.id, userId: m.user_id, username: m.username,

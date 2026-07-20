@@ -555,9 +555,86 @@ body {
 .recv-emoji { font-size: 1.8rem; line-height: 1; }
 .recv-count { font-size: 0.78rem; font-weight: 700; color: var(--ink-soft); }
 
-/* The identity chip sits at the top-right of the header. */
-.topbar .identity { order: 2; margin-left: auto; }
-.topbar .topbar-group { order: 1; }
+/* Right side of the header: coins, then the profile chip. */
+.topbar-right { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+
+.coins-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.7rem;
+  border: 2px solid var(--gold);
+  border-radius: 999px;
+  background: #fdf3d6;
+  color: #6b4e00;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(0.8rem, 3.2vw, 0.95rem);
+}
+
+.coins-ic { font-size: 0.9rem; }
+
+/* Online-people list */
+.online-list {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.2rem 0;
+}
+
+.online-person {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.online-dot {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  background: #fff;
+  font-size: 1.55rem;
+  position: relative;
+}
+
+.online-dot::after {
+  content: '';
+  position: absolute;
+  right: 1px; bottom: 1px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--win);
+  border: 2px solid #fff;
+}
+
+.online-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Person action chooser */
+.person-inner { max-width: 300px; text-align: center; }
+.person-head { display: grid; justify-items: center; gap: 0.3rem; margin-bottom: 0.3rem; }
+.person-avatar {
+  width: 64px; height: 64px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  background: #fff;
+  font-size: 2.2rem;
+}
+.person-name { font-size: 1.2rem; font-weight: 800; overflow-wrap: anywhere; }
 
 /* Always-visible identity chip in the header (phone + desktop). */
 .identity {

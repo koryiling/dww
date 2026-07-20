@@ -56,19 +56,23 @@
 <div id="game-screen" class="app wide" hidden>
 
   <div class="topbar">
-    <!-- Always-visible identity: who you are + your ID, on every device. -->
-    <button class="identity" id="identity" type="button">
-      <span class="identity-dot" id="player-dot-top"></span>
-      <span class="identity-name" id="player-name-top">—</span>
-      <span class="uid" id="player-id-top"></span>
-    </button>
-
     <div class="topbar-group">
       <a class="icon-btn admin-link" id="admin-link" href="admin.html" title="管理后台" hidden>⚙</a>
       <button class="icon-btn wide side-toggle" id="side-toggle">
         🏆 <span data-i18n="panel">面板</span>
       </button>
       <button class="icon-btn wide" id="lang-game" data-i18n="language">English</button>
+    </div>
+
+    <div class="topbar-right">
+      <!-- Current coins, to the left of the profile chip. -->
+      <span class="coins-chip"><span class="coins-ic">🪙</span><span id="coins-top">0</span></span>
+      <!-- Identity: who you are + ID; tap opens the profile page. -->
+      <button class="identity" id="identity" type="button">
+        <span class="identity-dot" id="player-dot-top"></span>
+        <span class="identity-name" id="player-name-top">—</span>
+        <span class="uid" id="player-id-top"></span>
+      </button>
     </div>
   </div>
 
@@ -91,6 +95,13 @@
         <span class="panel-tag" id="seat-count">0/9</span></h2>
       <div id="seats" class="seats"></div>
       <p class="hint" data-i18n="giftHint">点击座位上的用户可送礼物 🎁</p>
+    </section>
+
+    <!-- Everyone currently online -->
+    <section class="card">
+      <h2 class="admin-h2">🟢 <span data-i18n="onlinePeople">在线玩家</span>
+        <span class="panel-tag" id="online-count">0</span></h2>
+      <div id="online-list" class="online-list"></div>
     </section>
 
     <!-- Wealth / Charm / gift feed -->
@@ -208,6 +219,19 @@
              placeholder="说点什么…" autocomplete="off">
       <button type="submit" class="chat-send" data-i18n="send">发送</button>
     </form>
+  </div>
+</div>
+
+<!-- ===================== Person action chooser ===================== -->
+<div id="person-panel" class="panel" hidden>
+  <div class="panel-inner person-inner">
+    <div class="person-head">
+      <span class="person-avatar" id="person-avatar">🐰</span>
+      <span class="person-name" id="person-name">—</span>
+    </div>
+    <button class="wide-btn" id="person-profile" data-i18n="viewProfile">查看资料</button>
+    <button class="wide-btn subtle" id="person-gift" data-i18n="giveGiftBtn">送礼物</button>
+    <button class="wide-btn subtle" id="person-cancel" data-i18n="cancel">取消</button>
   </div>
 </div>
 
