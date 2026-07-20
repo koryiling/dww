@@ -88,6 +88,24 @@
     <!-- ---------- main column ---------- -->
     <div class="main-col">
 
+      <!-- Online room: 9 seats + chat -->
+      <section class="card room">
+        <h2 class="admin-h2">🪑 <span data-i18n="onlineRoom">在线房间</span>
+          <span class="panel-tag" id="seat-count">0/9</span></h2>
+        <div id="seats" class="seats"></div>
+      </section>
+
+      <section class="card chat-card">
+        <h2 class="admin-h2">💬 <span data-i18n="chat">聊天</span></h2>
+        <ul id="chat-list" class="chat-list"></ul>
+        <form id="chat-form" class="chat-form">
+          <input id="chat-input" type="text" maxlength="200" data-i18n-ph="chatPlaceholder"
+                 placeholder="说点什么…" autocomplete="off">
+          <button type="submit" class="chat-send" data-i18n="send">发送</button>
+        </form>
+      </section>
+
+
       <section class="status-card">
         <div class="polaroid">
           <div class="polaroid-photo">🐰🐻</div>
@@ -170,6 +188,10 @@
           <div class="field">
             <span data-i18n="favColor">喜欢的颜色</span>
             <div id="edit-swatches" class="swatches"></div>
+          </div>
+          <div class="field">
+            <span data-i18n="avatar">头像</span>
+            <div id="edit-avatars" class="avatar-grid"></div>
           </div>
           <p id="profile-error" class="error" hidden></p>
           <div class="button-row">

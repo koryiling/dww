@@ -34,10 +34,15 @@ const permsOf = (row) =>
 
 const hasPerm = (row, perm) => !!row.is_super || permsOf(row).includes(perm);
 
+const AVATARS = ['🐰', '🐻', '🐱', '🐶', '🦊', '🐼', '🐨', '🐯', '🦁', '🐮',
+  '🐷', '🐸', '🐵', '🐔', '🐧', '🦄', '🐙', '🦖', '🐳', '🦉'];
+
 const publicUser = (row) => ({
   id: row.id,
   username: row.username,
   color: row.color,
+  avatar: row.avatar ?? '🐰',
+  seat: row.seat ?? null,
   birthday: row.birthday ?? null,
   coins: row.coins,
   isAdmin: !!row.is_admin,
@@ -194,7 +199,9 @@ async function handle(request, env) {
   const method = request.method;
   const me = await userForToken(db, request);
 
-  if (pathname === '/api/config' && method === 'GET') return json(publicConfig);
+  if (pathname === '/api/config' && method === 'GET') {
+    return json({ ...publicConfig, avatars: AVATARS });
+  }
 
   /* -- auth -- */
 
@@ -235,11 +242,14 @@ async function handle(request, env) {
     }
     if (!id) return fail(503, 'id_exhausted', '无法分配用户 ID，请重试');
 
+    // A per-user starting avatar, spread across the set by id digits.
+    const avatar = AVATARS[Number(id) % AVATARS.length];
+
     await db.prepare(
       `INSERT INTO users
-         (id, username, username_lower, salt, hash, color, coins, is_admin, is_super, must_reset, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-    ).bind(id, name, lower, salt, hash, color, STARTING_COINS, isSuper, isSuper, Date.now()).run();
+         (id, username, username_lower, salt, hash, color, avatar, coins, is_admin, is_super, must_reset, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+    ).bind(id, name, lower, salt, hash, color, avatar, STARTING_COINS, isSuper, isSuper, Date.now()).run();
 
     const user = await db.prepare('SELECT * FROM users WHERE id = ?').bind(id).first();
     await logAction(db, {
@@ -369,7 +379,7 @@ async function handle(request, env) {
   // uniqueness check as registration.
   if (pathname === '/api/me/update' && method === 'POST') {
     if (!me) return fail(401, 'auth_required', '请先登录');
-    const { username, birthday, color } = await readJson(request);
+    const { username, birthday, color, avatar } = await readJson(request);
 
     if (username !== undefined) {
       const name = String(username).trim();
@@ -400,8 +410,75 @@ async function handle(request, env) {
       await db.prepare('UPDATE users SET color = ? WHERE id = ?').bind(color, me.id).run();
     }
 
+    if (avatar !== undefined) {
+      if (!AVATARS.includes(avatar)) return fail(400, 'bad_avatar', '无效的头像');
+      await db.prepare('UPDATE users SET avatar = ? WHERE id = ?').bind(avatar, me.id).run();
+      // Keep the seat/chat display in sync with the new avatar.
+      await db.prepare('UPDATE chat SET avatar = ? WHERE user_id = ?').bind(avatar, me.id).run();
+    }
+
     const updated = await db.prepare('SELECT * FROM users WHERE id = ?').bind(me.id).first();
     return json({ user: publicUser(updated) });
+  }
+
+  /* -- online room: 9 seats + chat -- */
+
+  if (pathname === '/api/room' && method === 'GET') {
+    const { results = [] } = await db.prepare(
+      'SELECT id, username, color, avatar, seat FROM users WHERE seat IS NOT NULL'
+    ).all();
+    const seats = Array.from({ length: 9 }, () => null);
+    for (const u of results) {
+      if (u.seat >= 1 && u.seat <= 9) {
+        seats[u.seat - 1] = { userId: u.id, username: u.username, color: u.color, avatar: u.avatar ?? '🐰' };
+      }
+    }
+
+    const { results: msgs = [] } = await db.prepare(
+      'SELECT id, user_id, username, color, avatar, text, at FROM chat ORDER BY at DESC LIMIT 50'
+    ).all();
+
+    return json({
+      seats,
+      mySeat: me?.seat ?? null,
+      messages: msgs.reverse().map((m) => ({
+        id: m.id, userId: m.user_id, username: m.username,
+        color: m.color, avatar: m.avatar ?? '🐰', text: m.text, at: m.at,
+      })),
+    });
+  }
+
+  if (pathname === '/api/room/sit' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { seat } = await readJson(request);
+    const n = Number(seat);
+    if (!Number.isInteger(n) || n < 1 || n > 9) return fail(400, 'bad_seat', '无效的座位');
+
+    const holder = await db.prepare('SELECT id FROM users WHERE seat = ?').bind(n).first();
+    if (holder && holder.id !== me.id) return fail(409, 'seat_taken', '该座位已被占用');
+
+    // One seat per person: leaving the old one is implicit in setting the new.
+    await db.prepare('UPDATE users SET seat = ? WHERE id = ?').bind(n, me.id).run();
+    return json({ ok: true, seat: n });
+  }
+
+  if (pathname === '/api/room/leave' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    await db.prepare('UPDATE users SET seat = NULL WHERE id = ?').bind(me.id).run();
+    return json({ ok: true });
+  }
+
+  if (pathname === '/api/room/chat' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { text } = await readJson(request);
+    const body = String(text ?? '').trim();
+    if (!body) return fail(400, 'empty_message', '消息不能为空');
+    if (body.length > 200) return fail(400, 'message_too_long', '消息过长（最多 200 字）');
+
+    await db.prepare(
+      'INSERT INTO chat (user_id, username, color, avatar, text, at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(me.id, me.username, me.color, me.avatar ?? '🐰', body, Date.now()).run();
+    return json({ ok: true });
   }
 
   if (pathname === '/api/bet' && method === 'POST') {

@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS users (
   salt           TEXT,                   -- NULL while awaiting a reset
   hash           TEXT,
   color          TEXT NOT NULL,
+  avatar         TEXT,                   -- emoji shown on the seat
+  seat           INTEGER,                -- 1..9 while seated, else NULL
   birthday       TEXT,                   -- YYYY-MM-DD, optional
   coins          INTEGER NOT NULL,
   is_admin       INTEGER NOT NULL DEFAULT 0,
@@ -91,6 +93,19 @@ CREATE TABLE IF NOT EXISTS audit_log (
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action, at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_log(target_id, at DESC);
+
+-- Room chat.
+CREATE TABLE IF NOT EXISTS chat (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id  TEXT NOT NULL REFERENCES users(id),
+  username TEXT NOT NULL,
+  color    TEXT NOT NULL,
+  avatar   TEXT,
+  text     TEXT NOT NULL,
+  at       INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_at ON chat(at DESC);
 
 CREATE TABLE IF NOT EXISTS meta (
   key   TEXT PRIMARY KEY,

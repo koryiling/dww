@@ -86,6 +86,153 @@ body {
 .topbar.end { justify-content: flex-end; }
 .topbar-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
+/* ---- Online room: 9 seats ---- */
+
+.room { display: grid; gap: 0.6rem; }
+
+.seats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.seat {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.25rem;
+  min-height: 92px;
+  padding: 0.5rem 0.3rem;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  background: var(--card-2);
+  text-align: center;
+}
+
+.seat.taken { border-style: solid; background: var(--card); }
+.seat.mine { border-color: var(--green); box-shadow: 0 0 0 2px var(--green) inset; }
+
+.seat-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  background: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.seat-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat-num { color: var(--ink-soft); font-size: 1.3rem; font-weight: 800; }
+
+.seat-btn {
+  padding: 0.2rem 0.7rem;
+  border: 2px solid var(--green-dark);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--green), var(--green-dark));
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.seat-btn.leave { background: var(--card-2); border-color: var(--line); color: var(--ink-soft); }
+
+/* ---- Chat ---- */
+
+.chat-card { display: grid; gap: 0.5rem; }
+
+.chat-list {
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--card-2);
+  border-radius: 12px;
+}
+
+.chat-empty { padding: 1rem; color: var(--ink-soft); text-align: center; font-size: 0.85rem; }
+
+.chat-msg { display: flex; gap: 0.45rem; align-items: flex-start; }
+
+.chat-avatar {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--line);
+  font-size: 1rem;
+  flex: none;
+}
+
+.chat-body { min-width: 0; display: grid; }
+.chat-who { font-size: 0.75rem; font-weight: 700; }
+.chat-text { font-size: 0.9rem; overflow-wrap: anywhere; }
+.chat-msg.me .chat-text { color: var(--green-dark); }
+
+.chat-form { display: flex; gap: 0.4rem; }
+
+.chat-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.8rem;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--card-2);
+  color: var(--ink);
+  font: inherit;
+}
+
+.chat-send {
+  flex: none;
+  padding: 0.55rem 1rem;
+  border: 2px solid var(--green-dark);
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--green), var(--green-dark));
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ---- Avatar picker ---- */
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 0.35rem;
+}
+
+.avatar-opt {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--card-2);
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+.avatar-opt.active { border-color: var(--green); background: #eef8dc; transform: scale(1.05); }
+
 /* Game switcher tabs (current game + coming-soon placeholder). */
 .game-tabs {
   display: grid;

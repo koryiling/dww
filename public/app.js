@@ -36,8 +36,11 @@ const els = {
   playerBirthday: $('player-birthday'), logout: $('logout'),
   editProfile: $('edit-profile'), profileForm: $('profile-form'),
   editName: $('edit-name'), editBirthday: $('edit-birthday'),
-  editSwatches: $('edit-swatches'), profileError: $('profile-error'),
-  cancelEdit: $('cancel-edit'),
+  editSwatches: $('edit-swatches'), editAvatars: $('edit-avatars'),
+  profileError: $('profile-error'), cancelEdit: $('cancel-edit'),
+
+  seats: $('seats'), seatCount: $('seat-count'),
+  chatList: $('chat-list'), chatForm: $('chat-form'), chatInput: $('chat-input'),
 
   stSpend: $('st-spend'), stIncome: $('st-income'), stNet: $('st-net'),
   stTopup: $('st-topup'), stRounds: $('st-rounds'),
@@ -56,6 +59,9 @@ const state = {
   mode: 'login',
   color: COLORS[0],
   editColor: null,
+  editAvatar: null,
+  mySeat: null,
+  lastChatId: 0,
   chip: CHIP_VALUES[0],
   clockOffset: 0,
   phase: null,
@@ -200,7 +206,7 @@ $('profile-head').addEventListener('click', (event) => {
 
 els.refresh.addEventListener('click', async () => {
   els.refresh.classList.add('spinning');
-  await Promise.all([poll(), loadRoundTop(), loadLeaderboard(), loadStats(), loadRequestStatus()]);
+  await Promise.all([poll(), loadRoundTop(), loadLeaderboard(), loadStats(), loadRequestStatus(), loadRoom()]);
   setTimeout(() => els.refresh.classList.remove('spinning'), 400);
 });
 
@@ -225,10 +231,26 @@ els.editProfile.addEventListener('click', () => {
   els.editName.value = state.me.username;
   els.editBirthday.value = state.me.birthday ?? '';
   state.editColor = state.me.color;
+  state.editAvatar = state.me.avatar;
   buildSwatchRow(els.editSwatches, (c) => { state.editColor = c; }, state.me.color);
+  buildAvatarRow(state.me.avatar);
   els.profileError.hidden = true;
   els.profileForm.hidden = false;
 });
+
+function buildAvatarRow(selected) {
+  els.editAvatars.replaceChildren(...(state.config?.avatars ?? []).map((emoji) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `avatar-opt ${emoji === selected ? 'active' : ''}`;
+    b.textContent = emoji;
+    b.addEventListener('click', () => {
+      state.editAvatar = emoji;
+      for (const el of els.editAvatars.children) el.classList.toggle('active', el === b);
+    });
+    return b;
+  }));
+}
 
 els.cancelEdit.addEventListener('click', () => { els.profileForm.hidden = true; });
 
@@ -242,6 +264,7 @@ els.profileForm.addEventListener('submit', async (event) => {
         username: els.editName.value,
         birthday: els.editBirthday.value,
         color: state.editColor ?? state.me.color,
+        avatar: state.editAvatar ?? state.me.avatar,
       },
     });
     state.me = user;
@@ -551,6 +574,102 @@ els.lbTabs.addEventListener('click', (event) => {
   loadLeaderboard();
 });
 
+/* ---- Online room: seats + chat ---- */
+
+async function loadRoom() {
+  try {
+    const { seats, mySeat, messages } = await api('/api/room');
+    state.mySeat = mySeat;
+    renderSeats(seats, mySeat);
+    renderChat(messages);
+  } catch { /* non-critical */ }
+}
+
+function renderSeats(seats, mySeat) {
+  const taken = seats.filter(Boolean).length;
+  els.seatCount.textContent = `${taken}/9`;
+
+  els.seats.replaceChildren(...seats.map((occ, index) => {
+    const n = index + 1;
+    const seat = document.createElement('div');
+    const mine = occ && occ.userId === state.me?.id;
+    seat.className = `seat ${occ ? 'taken' : 'empty'} ${mine ? 'mine' : ''}`;
+
+    if (occ) {
+      seat.innerHTML = `
+        <span class="seat-avatar" style="border-color:${occ.color}">${occ.avatar}</span>
+        <span class="seat-name"></span>`;
+      seat.querySelector('.seat-name').textContent = occ.username;
+      if (mine) {
+        const leave = document.createElement('button');
+        leave.className = 'seat-btn leave';
+        leave.textContent = t('leaveSeat');
+        leave.addEventListener('click', (e) => { e.stopPropagation(); leaveSeat(); });
+        seat.append(leave);
+      }
+    } else {
+      seat.innerHTML = `<span class="seat-num">${n}</span>`;
+      const sit = document.createElement('button');
+      sit.className = 'seat-btn';
+      sit.textContent = t('sit');
+      sit.addEventListener('click', () => sitSeat(n));
+      seat.append(sit);
+    }
+    return seat;
+  }));
+}
+
+async function sitSeat(n) {
+  try {
+    await api('/api/room/sit', { method: 'POST', body: { seat: n } });
+    await loadRoom();
+  } catch (error) { toast(tError(error)); }
+}
+
+async function leaveSeat() {
+  try {
+    await api('/api/room/leave', { method: 'POST' });
+    await loadRoom();
+  } catch (error) { toast(tError(error)); }
+}
+
+function renderChat(messages) {
+  if (!messages.length) {
+    els.chatList.innerHTML = `<li class="chat-empty">${t('noMessages')}</li>`;
+    return;
+  }
+  const atBottom = els.chatList.scrollHeight - els.chatList.scrollTop - els.chatList.clientHeight < 40;
+
+  els.chatList.replaceChildren(...messages.map((m) => {
+    const li = document.createElement('li');
+    li.className = `chat-msg ${m.userId === state.me?.id ? 'me' : ''}`;
+    li.innerHTML = `
+      <span class="chat-avatar">${m.avatar}</span>
+      <span class="chat-body">
+        <span class="chat-who" style="color:${m.color}"></span>
+        <span class="chat-text"></span>
+      </span>`;
+    li.querySelector('.chat-who').textContent = m.username;
+    li.querySelector('.chat-text').textContent = m.text;
+    return li;
+  }));
+
+  // Keep the newest message in view unless the user scrolled up to read.
+  if (atBottom) els.chatList.scrollTop = els.chatList.scrollHeight;
+}
+
+els.chatForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const text = els.chatInput.value.trim();
+  if (!text) return;
+  els.chatInput.value = '';
+  try {
+    await api('/api/room/chat', { method: 'POST', body: { text } });
+    await loadRoom();
+    els.chatList.scrollTop = els.chatList.scrollHeight;
+  } catch (error) { toast(tError(error)); }
+});
+
 /* ---- Panels ---- */
 
 function openPanel(title, items) {
@@ -691,11 +810,13 @@ async function enterGame(user) {
   await loadLeaderboard();
   await loadStats();
   await loadRequestStatus();
+  await loadRoom();
 
   setInterval(tickClock, 200);
   setInterval(poll, 30_000);
   setInterval(loadLeaderboard, 60_000);
   setInterval(loadRequestStatus, 30_000);
+  setInterval(loadRoom, 5_000);   // seats + chat update near real-time
 }
 
 (async function boot() {
