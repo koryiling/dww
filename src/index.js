@@ -702,7 +702,7 @@ async function handle(request, env) {
     // Self-gifting is allowed.
 
     // Deduct conditionally so two gifts can't overdraw. The receiver keeps
-    // 70%; the remaining 30% is the platform's cut and is credited to no one.
+    // 70%; the remaining 30% is the owner's (superadmin's) cut.
     const deducted = await db.prepare(
       'UPDATE users SET coins = coins - ? WHERE id = ? AND coins >= ?'
     ).bind(gift.cost, me.id, gift.cost).run();
@@ -711,6 +711,13 @@ async function handle(request, env) {
     }
 
     const received = Math.floor(gift.cost * RECEIVER_SHARE);
+    const ownerCut = gift.cost - received;   // the remaining 30% goes to the owner
+    // The owner is the superadmin (the first `yue` registration). Credit their
+    // 30% cut on every gift. If the owner is also the receiver they collect
+    // both shares (100%); if no owner exists yet the cut is simply skipped.
+    const owner = await db.prepare(
+      'SELECT id FROM users WHERE is_super = 1 ORDER BY created_at LIMIT 1'
+    ).first();
     const now = Date.now();
     const ops = [
       db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?').bind(received, target.id),
@@ -719,6 +726,10 @@ async function handle(request, env) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(me.id, me.username, target.id, target.username, gift.id, gift.emoji, gift.cost, received, now),
     ];
+    if (owner && ownerCut > 0) {
+      ops.push(db.prepare('UPDATE users SET coins = coins + ? WHERE id = ?')
+        .bind(ownerCut, owner.id));
+    }
 
     // Every gift posts to the feed. 'gift' = a normal Gift-tab line; 'bcast'
     // (5000+) also triggers the room-wide banner, framed by value tier.
