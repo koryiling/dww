@@ -1,7 +1,10 @@
 // Vercel Serverless Function that replaces the Cloudflare Worker / Netlify
-// Function. It handles every /api/* route (catch-all filename) and hands the
-// request straight to the existing Worker in src/index.js — the Worker speaks
-// the Web `Request`/`Response` contract, so no route code changes.
+// Function. A rewrite in vercel.json sends every /api/* path (any depth) here,
+// and it hands the request straight to the existing Worker in src/index.js —
+// the Worker speaks the Web `Request`/`Response` contract, so no route code
+// changes. (A `[...path]` catch-all filename was tried first but Vercel's
+// zero-config routing only matched a single segment, 404-ing nested routes
+// like /api/me/update; the explicit rewrite handles every depth.)
 //
 // This file works with BOTH function signatures Vercel might use:
 //   - Web:   handler(request: Request) -> Response
