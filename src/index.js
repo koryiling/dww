@@ -110,7 +110,7 @@ async function getSecret(db) {
   // First ever call — mint the draw secret. INSERT OR IGNORE means a race
   // between two cold requests still ends with exactly one secret.
   const secret = randomSecret();
-  await db.prepare('INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)')
+  await db.prepare('INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING')
     .bind('secret', secret).run();
   const stored = await db.prepare('SELECT value FROM meta WHERE key = ?').bind('secret').first();
   return stored.value;
@@ -182,10 +182,11 @@ async function settleDueRounds(db, secret, currentRound) {
       // record pays out once; an existing paid one fails the guard.
       await db.batch([
         db.prepare(
-          `INSERT OR IGNORE INTO records
+          `INSERT INTO records
              (id, round_id, user_id, at, landed_id, landed_name, is_plate,
               rows_json, staked, won, net, paid)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+           ON CONFLICT (id) DO NOTHING`
         ).bind(id, roundId, userId, at, spot.id, spot.name, plate,
                JSON.stringify(rows), staked, won, won - staked),
 

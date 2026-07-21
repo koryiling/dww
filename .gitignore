@@ -7,3 +7,7 @@ node_modules/
 
 # Wrangler local state and build output
 .wrangler/
+
+# Local env secrets (DATABASE_URL etc.) and Netlify local state
+.env
+.netlify/

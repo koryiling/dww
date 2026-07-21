@@ -6,9 +6,13 @@
   "type": "module",
   "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "dev": "netlify dev"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
+  },
+  "dependencies": {
+    "postgres": "^3.4.9"
   }
 }
