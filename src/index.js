@@ -758,7 +758,7 @@ async function handle(request, env) {
     if (!userId) return fail(400, 'bad_target', '缺少用户');
     const { results = [] } = await db.prepare(
       `SELECT emoji, gift_id, COUNT(*) AS count, SUM(received) AS total
-         FROM gifts WHERE to_id = ? GROUP BY gift_id ORDER BY total DESC`
+         FROM gifts WHERE to_id = ? GROUP BY gift_id, emoji ORDER BY total DESC`
     ).bind(userId).all();
     return json({
       gifts: results.map((r) => ({ emoji: r.emoji, giftId: r.gift_id, count: r.count, total: r.total })),
@@ -790,7 +790,7 @@ async function handle(request, env) {
     const amount = board === 'charm' ? 'received' : 'cost';
     const { results = [] } = await db.prepare(
       `SELECT ${col} AS uid, ${nameCol} AS name, SUM(${amount}) AS total, COUNT(*) AS times
-         FROM gifts GROUP BY ${col} ORDER BY total DESC LIMIT 20`
+         FROM gifts GROUP BY ${col}, ${nameCol} ORDER BY total DESC LIMIT 20`
     ).all();
 
     // Join the current colour/avatar for display.
@@ -954,7 +954,7 @@ async function handle(request, env) {
               SUM(r.staked) AS spent, COUNT(*) AS rounds
          FROM records r JOIN users u ON u.id = r.user_id
         WHERE r.at >= ?
-        GROUP BY r.user_id
+        GROUP BY r.user_id, u.username, u.color
         ORDER BY spent DESC
         LIMIT 20`
     ).bind(windowStart(range, offset)).all();
@@ -1236,7 +1236,7 @@ async function handle(request, env) {
           `SELECT target_id, target_name, SUM(amount) AS total, COUNT(*) AS times
              FROM audit_log
             WHERE ${CREDITED} AND amount > 0 AND at >= ?
-            GROUP BY target_id
+            GROUP BY target_id, target_name
             ORDER BY total DESC LIMIT 20`
         ).bind(since).all();
         return results.map((row) => ({

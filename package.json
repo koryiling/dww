@@ -4,13 +4,11 @@
   "private": true,
   "description": "大胃王 (replica) — synchronized multiplayer animal wheel",
   "type": "module",
-  "main": "server/index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "netlify dev"
+    "dev": "vercel dev"
   },
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "dependencies": {
     "postgres": "^3.4.9"

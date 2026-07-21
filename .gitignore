@@ -5,9 +5,8 @@ data/
 node_modules/
 *.log
 
-# Wrangler local state and build output
-.wrangler/
-
-# Local env secrets (DATABASE_URL etc.) and Netlify local state
+# Local env secrets (DATABASE_URL etc.) and Vercel local state
 .env
-.netlify/
+.vercel/
+.vercel
+.env*

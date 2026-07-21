@@ -1,10 +1,8 @@
 # 大胃王 (replica) — Animal Wheel
 
-Multiplayer betting wheel on Cloudflare Workers + D1. Every player shares one
-synchronized round clock, so everyone sees the same countdown and the same
+Multiplayer betting wheel on Vercel + Supabase Postgres. Every player shares
+one synchronized round clock, so everyone sees the same countdown and the same
 winner regardless of when they opened the page.
-
-**Live:** https://dww.koryiling511.workers.dev
 
 Game logic is ported from [`animal_wheel.ps1`](animal_wheel.ps1); the UI follows
 [`example layout.png`](example%20layout.png).
@@ -22,20 +20,39 @@ Players who run dry press **申请充值 / Request top-up** in the game; the req
 lands in the admin queue for approval or rejection. One open request per
 player at a time.
 
-## Deploy
+## Deploy (Vercel + Supabase)
+
+Static `public/` is served by Vercel's CDN; `/api/*` is one serverless
+function (`api/[...path].mjs`) that wraps [`src/index.js`](src/index.js). The
+database is Supabase Postgres, reached through the D1-compatible shim in
+[`db/d1-on-postgres.mjs`](db/d1-on-postgres.mjs).
+
+**One-time setup**
+
+1. Create a Supabase project. In its SQL Editor, run
+   [`schema.postgres.sql`](schema.postgres.sql) to create the tables.
+2. Grab the **Transaction pooler** connection string (Project Settings →
+   Database → Connection string → Transaction, port `6543`).
+
+**Ship**
 
 ```sh
-wrangler deploy                                   # ship
-wrangler d1 execute dww --remote --file=schema.sql # first time only
-wrangler tail                                      # live logs
+npm i -g vercel        # once
+vercel login           # once
+vercel                 # deploy a preview
+vercel --prod          # deploy to production
 ```
 
-Config lives in [`wrangler.jsonc`](wrangler.jsonc):
+Set these environment variables in the Vercel project (Settings → Environment
+Variables), or with `vercel env add <NAME> production`:
 
-| Var | Default | Purpose |
+| Var | Example | Purpose |
 |---|---|---|
+| `DATABASE_URL` | `postgresql://postgres.<ref>:<pw>@aws-0-<region>.pooler.supabase.com:6543/postgres` | Supabase transaction pooler string |
 | `ADMIN_USER` | `yue` | the first account registered under this name becomes superadmin |
 | `TZ_OFFSET_MINUTES` | `480` | leaderboard day/week boundaries in local time (UTC+8) |
+
+Run `vercel dev` for a local server (reads `.env`). Live logs: `vercel logs`.
 
 > **Claim the admin account immediately after deploying**, before sharing the
 > URL. Register `yue` on the game page with a password of your choosing —
@@ -123,7 +140,7 @@ public/
   admin.html admin.js                    hub
   topup.html topup.js                    add coins
   reset.html reset.js                    clear passwords
-schema.sql   D1 tables
+schema.postgres.sql   Supabase Postgres tables
 ```
 
 ## API
@@ -168,17 +185,11 @@ approval flips `pending → approved` and credits **only while `credited = 0`**,
 all inside one D1 transaction. A double click, or two admins acting at once,
 credits exactly once.
 
-## Two implementations
+## Portable by design
 
-Both live in this repo and share `public/` verbatim — the client never knew
-which backend it was talking to, because the API is identical.
-
-| | `src/` | `server/` |
-|---|---|---|
-| runs on | Cloudflare Workers | any Node host |
-| storage | D1 (SQL) | `data/db.json` |
-| hashing | PBKDF2 | scrypt |
-| start | `wrangler deploy` | `node server/index.js` |
-
-`src/` is what's deployed. `server/` is kept as a local dev option that needs
-no Cloudflare account — handy for offline work.
+The API in `src/` is written to the Web `Request`/`Response` contract, so it
+runs unchanged on Vercel's serverless runtime — `api/[...path].mjs` just builds
+the `env` object (DB binding + vars) and calls `worker.fetch(request, env)`.
+The `db/d1-on-postgres.mjs` shim reproduces Cloudflare D1's exact API
+(`prepare().bind().first()/.all()/.run()` and `batch()`) on top of Supabase
+Postgres, so the ~123 queries in `src/index.js` did not have to be rewritten.
