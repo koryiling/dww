@@ -20,6 +20,8 @@ const els = {
   form: $('profile-form'), editName: $('edit-name'), editBirthday: $('edit-birthday'),
   editBio: $('edit-bio'), editAvatars: $('edit-avatars'), editSwatches: $('edit-swatches'),
   error: $('profile-error'),
+  pwCard: $('pw-card'), pwForm: $('pw-form'), pwCurrent: $('pw-current'),
+  pwNew: $('pw-new'), pwConfirm: $('pw-confirm'), pwError: $('pw-error'),
   stSpend: $('st-spend'), stIncome: $('st-income'), stNet: $('st-net'), stTopup: $('st-topup'),
   recvGifts: $('recv-gifts'), giftsMore: $('gifts-more'),
   lang: $('lang'), logout: $('logout'), toast: $('toast'),
@@ -141,6 +143,34 @@ els.form.addEventListener('submit', async (event) => {
   }
 });
 
+els.pwForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  els.pwError.hidden = true;
+  const current = els.pwCurrent.value;
+  const next = els.pwNew.value;
+  if (next.length < 4) {
+    els.pwError.textContent = '新密码至少 4 位 / At least 4 characters';
+    els.pwError.hidden = false;
+    return;
+  }
+  if (next !== els.pwConfirm.value) {
+    els.pwError.textContent = '两次输入的新密码不一致 / Passwords do not match';
+    els.pwError.hidden = false;
+    return;
+  }
+  try {
+    await api('/api/me/password', {
+      method: 'POST',
+      body: { currentPassword: current, newPassword: next },
+    });
+    els.pwForm.reset();
+    toast('密码已更新 / Password updated');
+  } catch (error) {
+    els.pwError.textContent = tError(error);
+    els.pwError.hidden = false;
+  }
+});
+
 /* ---- Boot ---- */
 
 async function boot() {
@@ -159,6 +189,7 @@ async function boot() {
     header(me);
     els.bioView.hidden = true;
     els.editCard.hidden = false;
+    els.pwCard.hidden = false;
     els.statsCard.hidden = false;
     els.logout.hidden = false;
     els.editName.value = me.username;
@@ -173,6 +204,7 @@ async function boot() {
     const { profile } = await api(`/api/profile?id=${encodeURIComponent(viewId)}`);
     header(profile);
     els.editCard.hidden = true;
+    els.pwCard.hidden = true;
     els.statsCard.hidden = true;
     els.logout.hidden = true;
     els.bioView.hidden = false;

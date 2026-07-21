@@ -463,6 +463,28 @@ async function handle(request, env) {
     return json({ user: publicUser(updated) });
   }
 
+  // Change your own password (must supply the current one). This is the only
+  // self-service password change: admins can only *clear* a password, and the
+  // superadmin can't even be cleared — so this is how the owner replaces the
+  // password chosen at bootstrap registration.
+  if (pathname === '/api/me/password' && method === 'POST') {
+    if (!me) return fail(401, 'auth_required', '请先登录');
+    const { currentPassword = '', newPassword = '' } = await readJson(request);
+    if (!(await verifyPassword(String(currentPassword), me.salt, me.hash))) {
+      return fail(401, 'bad_credentials', '当前密码错误');
+    }
+    if (String(newPassword).length < 4) return fail(400, 'short_password', '新密码至少 4 位');
+
+    const { salt, hash } = await hashPassword(String(newPassword));
+    const token = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
+    await db.batch([
+      db.prepare('UPDATE users SET salt = ?, hash = ? WHERE id = ?').bind(salt, hash, me.id),
+      // Sign out every OTHER session; keep the one making this request alive.
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND token != ?').bind(me.id, token),
+    ]);
+    return json({ ok: true });
+  }
+
   /* -- online room: 9 seats + chat -- */
 
   if (pathname === '/api/room' && method === 'GET') {

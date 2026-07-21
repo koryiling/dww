@@ -58,6 +58,27 @@
     </form>
   </section>
 
+  <!-- Change password (own profile only) -->
+  <section class="card" id="pw-card">
+    <h2 class="admin-h2">🔒 修改密码 / Change Password</h2>
+    <form id="pw-form" class="form">
+      <label class="field">
+        <span>当前密码 / Current password</span>
+        <input id="pw-current" type="password" autocomplete="current-password">
+      </label>
+      <label class="field">
+        <span>新密码 / New password</span>
+        <input id="pw-new" type="password" autocomplete="new-password" minlength="4">
+      </label>
+      <label class="field">
+        <span>确认新密码 / Confirm new password</span>
+        <input id="pw-confirm" type="password" autocomplete="new-password" minlength="4">
+      </label>
+      <p id="pw-error" class="error" hidden></p>
+      <button type="submit" class="wide-btn">更新密码 / Update password</button>
+    </form>
+  </section>
+
   <!-- My stats (own profile only) -->
   <section class="card" id="stats-card">
     <h2 class="admin-h2">📊 <span data-i18n="dashboard">我的数据</span></h2>
